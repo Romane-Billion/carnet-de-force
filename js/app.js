@@ -3,7 +3,7 @@ import { SCHEMAS, LEGENDES } from "./schemas.js";
 import { initRepas, refreshRepas, REPAS_KEYS } from "./repas.js";
 
 /* ---------- Stockage sur le téléphone ---------- */
-const K = {seances: "carnet-seances-v2", encours: "carnet-encours-v2", tractions: "carnet-tractions-v2"};
+const K = {seances: "carnet-seances-v2", encours: "carnet-encours-v2", tractions: "carnet-tractions-v2", marche: "carnet-marche-v1"};
 const store = {
   get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
@@ -13,6 +13,10 @@ const sortS = a => a.sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 
 let sessions = sortS(store.get(K.seances, []));
 let tractions = store.get(K.tractions, []).sort((a, b) => a.date < b.date ? -1 : 1);
 let cur = null; // séance en cours
+// Vitesse de marche inclinée (pente maximale) : c'est Romane qui décide quand monter de 0,1 km/h.
+let marche = store.get(K.marche, null) || [{date: "2026-11-09", v: 3.5}];
+const vitesse = () => marche[marche.length - 1];
+const PALIER_JOURS = 14;
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -89,6 +93,10 @@ function renderSeance(){
     <button type="button" class="link" id="switch">Faire plutôt la séance ${cur.type === "A" ? "B" : "A"}</button>`;
   const c = cur.cardio;
   $("cardio").innerHTML = `<div class="ex-head"><h3>1. Cardio · ${CARDIO.min} min</h3>${c ? `<span class="okmark">✓ Fait</span>` : ""}</div>
+    <div class="banner"><b>Marche inclinée : pente maximale, ${fmt(vitesse().v)} km/h,</b> sans te tenir aux barres.
+      ${(() => { const d = new Date(vitesse().date + "T12:00:00"); d.setDate(d.getDate() + PALIER_JOURS); const pret = today() >= d.toISOString().slice(0, 10);
+        return pret ? `<div style="margin-top:8px"><button type="button" class="primary" id="marchePlus">Je me sens prête : +0,1 km/h</button></div><span class="small">Seulement si ${fmt(vitesse().v)} km/h te paraît facile maintenant.</span>`
+          : `<span class="small muted">Prochain palier (+0,1 km/h) proposé à partir du ${dateFr(d.toISOString().slice(0, 10), {day:"numeric", month:"long"})}, quand tu te sentiras prête.</span>`; })()}</div>
     <p class="muted small" style="margin:0">Pour démarrer. Touche ce que tu as fait.</p>
     <div class="choices">${CARDIO.choix.map(x => `<button type="button" class="choice" data-cardio="${esc(x)}" aria-pressed="${c === x}">${esc(x)}</button>`).join("")}</div>`;
   $("exList").innerHTML = list.map((ex, i) => {
@@ -121,6 +129,7 @@ document.addEventListener("click", e => {
     if (started() && t.dataset.armed !== "1"){ t.dataset.armed = "1"; t.textContent = "Tu as déjà commencé. Touche encore pour changer."; return; }
     cur = newSession(cur.type === "A" ? "B" : "A"); saveCurrent(); renderSeance(); return;
   }
+  if (t.id === "marchePlus"){ marche.push({date: today(), v: Math.round((vitesse().v + .1) * 10) / 10}); store.set(K.marche, marche); renderSeance(); renderProgres(); toast(`Nouvelle vitesse : ${fmt(vitesse().v)} km/h. Bravo !`); return; }
   if (t.dataset.cardio){ cur.cardio = cur.cardio === t.dataset.cardio ? null : t.dataset.cardio; saveCurrent(); renderSeance(); keepAwake(); return; }
   if (t.dataset.set){
     const [id, k] = t.dataset.set.split(":"); const st = cur.ex[id]; const ex = byId[id];
@@ -152,7 +161,7 @@ $("finish").addEventListener("click", () => {
   const ex = {};
   for (const [id, st] of Object.entries(cur.ex)) if (st.sets.some(v => v)) ex[id] = {charge: st.charge, reps: st.reps, sets: st.sets};
   if (!Object.keys(ex).length && !cur.cardio){ toast("Coche au moins une série ou ton cardio avant de terminer."); return; }
-  const doc = {id: "s" + Date.now().toString(36), date: cur.date, type: cur.type, cardio: cur.cardio, ex, createdAt: Date.now()};
+  const doc = {id: "s" + Date.now().toString(36), date: cur.date, type: cur.type, cardio: cur.cardio, vitesse: cur.cardio === CARDIO.choix[0] ? vitesse().v : undefined, ex, createdAt: Date.now()};
   sessions = sortS([...sessions, doc]);
   if (!store.set(K.seances, sessions)){ sessions = sessions.filter(s => s !== doc); toast("Le téléphone n'a pas pu enregistrer. Exporte une sauvegarde et réessaie."); return; }
   stopRest();
@@ -245,6 +254,14 @@ function renderProgres(){
     ${tractions.length > 1 ? chart(tractions.map(t => ({d: t.date, v: t.n})), v => String(v), "tractions strictes") : ""}
     ${tractions.length ? `<ul class="small">${[...tractions].reverse().slice(0, 6).map(t => `<li>${dateFr(t.date)} : <b>${t.n}</b> traction${t.n > 1 ? "s" : ""}</li>`).join("")}</ul>` : ""}`;
 
+  // Marche inclinée
+  $("pMarche").innerHTML = `<h2>Marche inclinée</h2>
+    <div class="stats"><div class="stat"><span class="eyebrow">Au départ</span><b class="num">${fmt(marche[0].v)} km/h</b><span class="muted small">${dateFr(marche[0].date, {day:"numeric", month:"short"})}</span></div>
+      <div class="stat"><span class="eyebrow">Aujourd'hui</span><b class="num">${fmt(vitesse().v)} km/h</b><span class="muted small">depuis le ${dateFr(vitesse().date, {day:"numeric", month:"short"})}</span></div>
+      <div class="stat"><span class="eyebrow">Gagné</span><b class="num">+${fmt(vitesse().v - marche[0].v)} km/h</b></div></div>
+    <p class="muted small" style="margin:0">Toujours à la pente maximale, sans te tenir aux barres.</p>
+    ${marche.length > 1 ? `<ul class="small">${[...marche].reverse().map(m => `<li>${dateFr(m.date)} : <b>${fmt(m.v)} km/h</b></li>`).join("")}</ul>` : ""}`;
+
   // Charges
   const keys = [...new Map(ALL.filter(e => e.mode !== "reps" || true).map(e => [keyOf(e), e])).values()];
   const rows = keys.map(ex => {
@@ -301,7 +318,7 @@ function renderHist(){
       return `<li><b>${esc(ex.nom.replace(/,.*$/, ""))}</b> · ${ex.mode === "reps" ? "" : loadTxt(ex, e.charge ?? 0) + " · "}<span class="num">${ok}/${ex.sets} séries de ${e.reps}${part ? `, ${part} incomplète${part > 1 ? "s" : ""}` : ""}</span></li>`;
     }).join("");
     return `<div class="card"><div class="row" style="justify-content:space-between"><h3>Séance ${esc(s.type)} · ${dateFr(s.date)}</h3><button class="ghost" data-del="${esc(s.id)}" type="button">Supprimer</button></div>
-      <ul>${s.cardio ? `<li>Cardio : ${esc(s.cardio)}</li>` : ""}${items}</ul></div>`;
+      <ul>${s.cardio ? `<li>Cardio : ${esc(s.cardio)}${s.vitesse ? `, ${fmt(s.vitesse)} km/h` : ""}</li>` : ""}${items}</ul></div>`;
   }).join("");
 }
 $("hist").addEventListener("click", ev => {
@@ -314,7 +331,7 @@ $("hist").addEventListener("click", ev => {
 /* ---------- Sauvegarde ---------- */
 $("export").addEventListener("click", async () => {
   const name = `carnet-de-force-${today()}.json`;
-  const blob = new Blob([JSON.stringify({app: "carnet-de-force", version: 2, seances: sessions, tractions, repas: Object.fromEntries(Object.entries(REPAS_KEYS).map(([k, key]) => [k, store.get(key, null)]))}, null, 1)], {type: "application/json"});
+  const blob = new Blob([JSON.stringify({app: "carnet-de-force", version: 2, seances: sessions, tractions, marche, repas: Object.fromEntries(Object.entries(REPAS_KEYS).map(([k, key]) => [k, store.get(key, null)]))}, null, 1)], {type: "application/json"});
   const file = new File([blob], name, {type: "application/json"});
   try { if (navigator.canShare?.({files: [file]})){ await navigator.share({files: [file], title: "Sauvegarde carnet de force"}); return; } } catch (e) { if (e?.name === "AbortError") return; }
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -328,6 +345,7 @@ $("importFile").addEventListener("change", async ev => {
     for (const s of data.seances) if (s?.date && s.ex && !ids.has(s.id) && Object.values(s.ex).every(e => Array.isArray(e.sets))){ sessions.push(s); ids.add(s.id); n++; }
     if (Array.isArray(data.tractions)) for (const t of data.tractions) if (t?.date && !tractions.some(x => x.date === t.date)) tractions.push({date: t.date, n: +t.n || 0});
     sortS(sessions); tractions.sort((a, b) => a.date < b.date ? -1 : 1);
+    if (Array.isArray(data.marche) && data.marche.length > marche.length){ marche = data.marche; store.set(K.marche, marche); }
     store.set(K.seances, sessions); store.set(K.tractions, tractions);
     if (data.repas){
       const jr = store.get(REPAS_KEYS.jours, {}); for (const [d, j] of Object.entries(data.repas.jours || {})) if (!jr[d]) jr[d] = j; store.set(REPAS_KEYS.jours, jr);
