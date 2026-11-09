@@ -85,7 +85,7 @@ function renderSeance(){
     <div class="eyebrow">${dateFr(cur.date, {weekday:"long", day:"numeric", month:"long"})}</div>
     <h1>Séance ${cur.type}</h1>
     <p class="big">${main.length} exercices${opt.length ? ` + ${opt.length} optionnel` : ""} · environ ${duree(cur.type)}</p>
-    <p class="muted small">Touche une série quand tu l'as finie : la pause démarre toute seule. Touche-la encore si tu n'as pas fait toutes les reps.</p>
+    <p class="muted small">Touche le rond d'une série quand tu l'as finie : un grand compte à rebours de pause s'affiche en bas de l'écran et sonne à la fin. Touche le rond une deuxième fois s'il te manque des reps.</p>
     <button type="button" class="link" id="switch">Faire plutôt la séance ${cur.type === "A" ? "B" : "A"}</button>`;
   const c = cur.cardio;
   $("cardio").innerHTML = `<div class="ex-head"><h3>1. Cardio · ${CARDIO.min} min</h3>${c ? `<span class="okmark">✓ Fait</span>` : ""}</div>
@@ -102,6 +102,7 @@ function renderSeance(){
       ${p.msg && p.msg.startsWith("Progrès") ? `<div class="tip up">${esc(p.msg)}</div>` : ""}
       <p class="muted small" style="margin:0">${esc(ex.tip)}</p>
       <div class="sets">${st.sets.map((v, k) => `<button type="button" class="set s${v}" data-set="${ex.id}:${k}" aria-label="Série ${k + 1} ${v === 1 ? "faite" : v === 2 ? "pas toutes les reps" : "à faire"}">${v === 1 ? "✓" : v === 2 ? "≈" : k + 1}</button>`).join("")}</div>
+      <div class="restinfo"><span>⏱ Pause : <b>${mmss(ex.repos)}</b> entre les séries, <b>${mmss(PAUSE_EXO)}</b> avant l'exercice suivant</span><button type="button" class="ghost" data-pause="${ex.id}">Lancer la pause</button></div>
       <div class="row">
         ${fiche ? `<button type="button" class="ghost" data-fiche="${fiche.id}">Comment faire ?</button>` : ""}
         <button type="button" class="ghost" data-edit="${ex.id}">Modifier</button>
@@ -135,6 +136,7 @@ document.addEventListener("click", e => {
     }
     renderSeance(); return;
   }
+  if (t.dataset.pause){ const ex = byId[t.dataset.pause]; const st = cur.ex[ex.id]; startRest(st.sets.every(v => v) ? PAUSE_EXO : ex.repos, "Pause"); return; }
   if (t.dataset.edit){ const el = $("edit-" + t.dataset.edit); el.hidden = !el.hidden; return; }
   if (t.dataset.fiche){ openFiche(t.dataset.fiche); return; }
   if (t.dataset.close !== undefined){ $("sheet").close(); return; }
@@ -348,7 +350,12 @@ document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click
 }));
 
 if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) $("install").hidden = true;
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+// Mise à jour : dès qu'une nouvelle version est installée, l'appli se recharge toute seule.
+if ("serviceWorker" in navigator){
+  const hadCtrl = !!navigator.serviceWorker.controller; let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadCtrl && !reloaded){ reloaded = true; location.reload(); } });
+  navigator.serviceWorker.register("sw.js").then(r => { r.update?.(); document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") r.update?.().catch(() => {}); }); }).catch(() => {});
+}
 
 function renderAll(){ renderSeance(); renderFiches(); renderProgres(); renderHist(); }
 cur = loadCurrent(); saveCurrent();
