@@ -5,6 +5,7 @@
 //        "reps"   = poids du corps, on ajoute des reps
 // Progression automatique : quand toutes les séries sont cochées au nombre de reps prévu,
 // la fois suivante on ajoute 1 rep ; arrivée au haut de la fourchette, on change la charge et on repart du bas.
+// Assistance machine : paliers de 6,8 kg (6,8 / 13,6 / 20,4 / 27,2 / 34 / 40,8).
 // repos : pause entre deux séries (secondes). schema : dessin explicatif dans js/schemas.js.
 
 export const CARDIO = {min: 20, choix: ["Marche inclinée et course", "Montée de marches"]};
@@ -12,7 +13,7 @@ export const PAUSE_EXO = 150; // pause entre deux exercices
 
 export const EX = {
   A: [
-    {id:"traction", nom:"Tractions assistées", sets:4, min:6, max:8, mode:"assist", start:15, step:5, repos:120,
+    {id:"traction", nom:"Tractions assistées", sets:4, min:5, max:8, mode:"assist", start:13.6, step:6.8, repos:120,
       tip:"Machine à genoux. Monte jusqu'au menton au-dessus de la barre, redescends doucement."},
     {id:"presse", nom:"Presse inclinée, pieds hauts et écartés", sets:4, min:10, max:10, mode:"charge", start:75, step:5, repos:120, schema:"presse",
       tip:"Pieds en haut du plateau, plus écartés que les hanches. Descends jusqu'à 90° aux genoux, pas plus bas."},
@@ -30,7 +31,7 @@ export const EX = {
       tip:"Pars d'en haut (banc ou saut) et descends en comptant 5 secondes."},
     {id:"tirage", nom:"Tirage vertical", sets:3, min:10, max:10, mode:"charge", start:null, step:2.5, repos:90,
       tip:"Première fois : choisis une charge où les 10 reps sont dures mais propres. Tire la barre vers le haut de la poitrine."},
-    {id:"dips", nom:"Dips assistés", sets:4, min:8, max:10, mode:"assist", start:20, step:5, repos:120,
+    {id:"dips", nom:"Dips assistés", sets:4, min:8, max:10, mode:"assist", start:20.4, step:6.8, repos:120,
       tip:"Même machine que les tractions. Descends jusqu'à 90° aux coudes."},
     {id:"presseB", nom:"Presse inclinée, pieds hauts et écartés", sets:3, min:12, max:12, mode:"charge", start:null, step:5, repos:120, schema:"presse", lie:"presse",
       tip:"Comme en séance A, avec plus de reps : prends environ 10 kg de moins que ta charge de la séance A."},

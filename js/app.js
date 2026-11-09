@@ -39,6 +39,7 @@ function lastOf(key){
   }
   return null;
 }
+const palier = (ex, c) => ex.mode === "assist" && c != null ? Math.max(0, Math.round(Math.round(c / ex.step) * ex.step * 10) / 10) : c;
 function plan(ex){
   const e = lastOf(keyOf(ex));
   if (!e){
@@ -52,11 +53,11 @@ function plan(ex){
   let c = e.charge ?? null, r = e.reps ?? ex.min, msg = "";
   if (all){
     if (r < ex.max){ r++; msg = `Progrès : ${r} reps cette fois.`; }
-    else if (ex.mode === "assist"){ const n = Math.max(0, c - ex.step); msg = n === 0 ? "Progrès : sans assistance !" : `Progrès : ${fmt(c - n)} kg d'assistance en moins.`; c = n; r = ex.min; }
+    else if (ex.mode === "assist"){ c = palier(ex, c); const n = palier(ex, Math.max(0, c - ex.step)); msg = n === 0 ? "Progrès : sans assistance !" : `Progrès : ${fmt(c - n)} kg d'assistance en moins.`; c = n; r = ex.min; }
     else if (ex.mode === "charge" && c != null){ c = c + ex.step; r = ex.min; msg = `Progrès : +${fmt(ex.step)} kg.`; }
     else msg = "Tu es au maximum prévu, garde ce niveau.";
   } else if (done < ex.sets) msg = "Même objectif que la dernière fois.";
-  return {charge: c, reps: Math.max(ex.min, Math.min(r, ex.max)), msg};
+  return {charge: palier(ex, c), reps: Math.max(ex.min, Math.min(r, ex.max)), msg};
 }
 
 /* ---------- Séance en cours ---------- */
@@ -67,7 +68,12 @@ function newSession(type){
 }
 function loadCurrent(){
   const c = store.get(K.encours, null);
-  if (c && c.type && Date.now() - (c.startedAt || 0) < 14 * 3600e3) return c;
+  if (c && c.type && Date.now() - (c.startedAt || 0) < 14 * 3600e3){
+    c.ex ||= {};
+    for (const e of EX[c.type] || []) if (!c.ex[e.id]){ const p = plan(e); c.ex[e.id] = {charge: p.charge, reps: p.reps, sets: Array(e.sets).fill(0)}; }
+    for (const [id, st] of Object.entries(c.ex)){ const ex = byId[id]; if (ex?.mode === "assist" && st.charge != null && Math.abs(palier(ex, st.charge) - st.charge) > .05) st.charge = plan(ex).charge; if (ex && st.reps < ex.min) st.reps = ex.min; }
+    return c;
+  }
   const last = sessions[sessions.length - 1];
   return newSession(last ? (last.type === "A" ? "B" : "A") : "A");
 }
