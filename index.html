@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carnet de force</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Carnet">
+<meta name="theme-color" content="#ECEEF1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111317" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="hero" aria-label="Ton niveau">
+    <div class="hero-top">
+      <div>
+        <div class="eyebrow">Carnet de force de Romane</div>
+        <div class="lvl num" id="lvl">Niv. 1<small>Recrue</small></div>
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div>
+      <div class="row" style="justify-content:space-between;font-size:.82rem;margin-bottom:6px"><span id="xpLabel" class="num">0 XP</span><span id="xpNext" class="num"></span></div>
+      <div class="xpbar"><i id="xpFill" style="width:0%"></i></div>
+    </div>
+    <div>
+      <div class="eyebrow" style="margin-bottom:8px">Quête traction · assistance machine</div>
+      <div class="ladder" id="ladder"></div>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="seance">Séance</button>
+    <button role="tab" aria-selected="false" data-tab="exos">Exos</button>
+    <button role="tab" aria-selected="false" data-tab="progres">Progrès</button>
+    <button role="tab" aria-selected="false" data-tab="badges">Badges</button>
+    <button role="tab" aria-selected="false" data-tab="histo">Histo</button>
+  </nav>
+
+  <section class="panel" id="p-seance">
+    <div class="card" style="display:grid;gap:14px">
+      <div class="row" style="justify-content:space-between">
+        <div class="seg" role="group" aria-label="Type de séance">
+          <button id="segA" type="button" aria-pressed="true" data-type="A">Séance A</button>
+          <button id="segB" type="button" aria-pressed="false" data-type="B">Séance B</button>
+        </div>
+        <label class="f">Date<input type="date" id="date"></label>
+      </div>
+      <div id="cycle" class="banner"></div>
+      <p class="muted" style="margin:0;font-size:.9rem">Échauffement : 10 min de marche inclinée, puis 2 séries légères. Garde toujours 1 ou 2 reps en réserve. Laisse une case vide si tu n'as pas fait la série. Touche une image pour voir le mouvement.</p>
+    </div>
+    <form class="card" id="form" autocomplete="off">
+      <div id="exList"></div>
+      <label class="f" style="margin-top:6px">Note (sensations, genou, sommeil…)<textarea id="note" rows="2"></textarea></label>
+      <div class="row" style="margin-top:14px;justify-content:flex-end">
+        <button class="primary" id="save" type="submit">Enregistrer la séance</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel" id="p-exos" hidden><div class="stack" id="lib"></div></section>
+
+  <section class="panel" id="p-progres" hidden>
+    <div class="card" style="display:grid;gap:12px">
+      <div class="row" style="justify-content:space-between">
+        <h2>Courbe</h2>
+        <select id="exSel" aria-label="Exercice"></select>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div id="chartBox"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-badges" hidden><div class="badges" id="badges"></div></section>
+
+  <section class="panel" id="p-histo" hidden>
+    <div class="hist" id="hist"></div>
+    <div class="card stack">
+      <h2>Sauvegarde</h2>
+      <p class="muted" style="margin:0;font-size:.9rem">Tes séances restent sur ton téléphone, rien n'est envoyé ailleurs. Exporte une sauvegarde de temps en temps (dans Fichiers ou par mail) pour ne rien perdre si tu changes de téléphone.</p>
+      <div class="row">
+        <button class="primary" id="export" type="button">Exporter</button>
+        <button class="ghost" id="importBtn" type="button" style="padding:12px 16px">Importer une sauvegarde</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+    </div>
+    <div class="card install" id="install">
+      <h3>Installer sur l'iPhone</h3>
+      <ol class="muted" style="font-size:.9rem">
+        <li>Ouvre cette page dans Safari.</li>
+        <li>Touche le bouton Partager (carré avec une flèche).</li>
+        <li>Choisis « Sur l'écran d'accueil ».</li>
+      </ol>
+    </div>
+    <p class="credits">Photos des exercices : <a href="https://github.com/yuhonas/free-exercise-db">Free Exercise DB</a>, domaine public.</p>
+  </section>
+</div>
+
+<dialog class="sheet" id="sheet"><div class="sheet-body" id="sheetBody"></div></dialog>
+<div class="rest" id="rest" hidden role="timer" aria-live="polite">
+  <b class="num">0:00</b><div class="bar"><i></i></div>
+  <button type="button" id="restPlus">+30 s</button><button type="button" id="restStop">Stop</button>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
