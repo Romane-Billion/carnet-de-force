@@ -1,0 +1,47 @@
+// Plats « du dehors » à portions standard, valeurs estimées pour une portion MOYENNE.
+// [nom, kcal, protéines, glucides, lipides, description de la portion moyenne]
+// Petite portion = × 0,7 ; grosse portion = × 1,4. Ce sont des estimations : un plat de restaurant varie beaucoup.
+export const PORTIONS = [{id: "petite", nom: "Petite", f: .7}, {id: "moyenne", nom: "Moyenne", f: 1}, {id: "grosse", nom: "Grosse", f: 1.4}];
+
+export const PLATS = [
+  ["Brick au thon et à l'œuf", 330, 14, 22, 21, "1 brick"],
+  ["Couscous royal (merguez, poulet, agneau)", 850, 45, 90, 33, "1 assiette"],
+  ["Couscous au poulet", 700, 40, 85, 20, "1 assiette"],
+  ["Tajine de poulet", 550, 38, 35, 28, "1 assiette, sans pain"],
+  ["Kebab (sandwich, sans frites)", 750, 35, 70, 35, "1 sandwich"],
+  ["Assiette kebab avec frites", 1100, 45, 95, 58, "1 assiette"],
+  ["Tacos français", 950, 40, 90, 48, "1 tacos taille M"],
+  ["Frites", 320, 4, 40, 16, "1 cornet moyen (100 g environ)"],
+  ["Burger (seul)", 550, 28, 45, 28, "1 burger"],
+  ["Menu burger frites", 950, 33, 95, 46, "burger + frites, sans boisson"],
+  ["Pizza margherita", 800, 32, 100, 28, "1 pizza individuelle"],
+  ["Pizza garnie (reine, 4 fromages…)", 1000, 42, 100, 46, "1 pizza individuelle"],
+  ["Sushis et makis", 520, 22, 85, 10, "1 plateau de 12 pièces"],
+  ["Poké bowl au saumon", 650, 30, 80, 22, "1 bowl"],
+  ["Poké bowl au poulet", 600, 35, 75, 16, "1 bowl"],
+  ["Salade composée (type César)", 550, 30, 25, 36, "1 grande assiette"],
+  ["Salade de pâtes ou de riz", 500, 15, 60, 22, "1 barquette"],
+  ["Sandwich jambon-beurre", 450, 20, 50, 18, "1 demi-baguette"],
+  ["Sandwich poulet crudités", 480, 25, 52, 18, "1 demi-baguette"],
+  ["Wrap au poulet", 500, 28, 50, 20, "1 wrap"],
+  ["Falafels (sandwich)", 650, 20, 75, 28, "1 sandwich"],
+  ["Croque-monsieur", 450, 24, 35, 24, "1 croque"],
+  ["Quiche lorraine", 400, 14, 25, 27, "1 part"],
+  ["Pâtes bolognaise", 650, 30, 85, 18, "1 assiette"],
+  ["Pâtes carbonara", 800, 30, 85, 36, "1 assiette"],
+  ["Riz cantonais", 550, 18, 75, 18, "1 assiette"],
+  ["Pad thaï", 650, 25, 80, 24, "1 assiette"],
+  ["Bo bun", 600, 28, 70, 20, "1 bol"],
+  ["Ramen", 600, 28, 75, 20, "1 bol"],
+  ["Curry de poulet et riz", 700, 35, 80, 24, "1 assiette"],
+  ["Steak frites", 850, 45, 60, 45, "1 assiette"],
+  ["Raclette", 1000, 45, 60, 62, "1 repas"],
+  ["Omelette (3 œufs)", 300, 21, 1, 23, "3 œufs"],
+  ["Croissant", 230, 5, 26, 12, "1 croissant"],
+  ["Pain au chocolat", 280, 5, 32, 15, "1 pain au chocolat"],
+  ["Shaker de whey (avec eau)", 115, 24, 2, 1, "1 dose de 30 g"],
+  ["Barre protéinée", 200, 20, 20, 7, "1 barre"],
+  ["Verre de vin", 85, 0, 3, 0, "12 cl"],
+  ["Bière", 110, 1, 9, 0, "1 demi (25 cl)"],
+  ["Cocktail", 200, 0, 20, 2, "1 verre"]
+];

@@ -22,6 +22,7 @@
 <div class="wrap">
   <nav class="tabs" role="tablist">
     <button role="tab" aria-selected="true" data-tab="seance">Séance</button>
+    <button role="tab" aria-selected="false" data-tab="repas">Repas</button>
     <button role="tab" aria-selected="false" data-tab="exos">Exercices</button>
     <button role="tab" aria-selected="false" data-tab="progres">Progrès</button>
     <button role="tab" aria-selected="false" data-tab="histo">Historique</button>
@@ -32,6 +33,15 @@
     <div class="card ex" id="cardio"></div>
     <div class="panel" id="exList"></div>
     <button class="primary big-btn" id="finish" type="button">Terminer la séance</button>
+  </section>
+
+  <section class="panel" id="p-repas" hidden>
+    <div class="card daynav" id="rDate"></div>
+    <div class="card stack" id="rBilan"></div>
+    <div class="panel" id="rListe"></div>
+    <details class="card stack" id="rObj"></details>
+    <div class="card stack" id="rCorps"></div>
+    <p class="muted small credits">Aliments : table Ciqual de l'Anses et Open Food Facts. Les plats du dehors sont des estimations.</p>
   </section>
 
   <section class="panel" id="p-exos" hidden><div class="panel" id="lib"></div></section>
@@ -46,7 +56,7 @@
     <div class="hist" id="hist"></div>
     <div class="card stack">
       <h2>Sauvegarde</h2>
-      <p class="muted small" style="margin:0">Tes séances restent sur ton téléphone, rien n'est envoyé ailleurs. Exporte une sauvegarde de temps en temps (dans Fichiers ou par mail) pour ne rien perdre si tu changes de téléphone.</p>
+      <p class="muted small" style="margin:0">Tes séances et tes repas restent sur ton téléphone, rien n'est envoyé ailleurs. Exporte une sauvegarde de temps en temps (dans Fichiers ou par mail) pour ne rien perdre si tu changes de téléphone.</p>
       <div class="row">
         <button class="primary" id="export" type="button">Exporter</button>
         <button class="ghost" id="importBtn" type="button">Importer une sauvegarde</button>
@@ -60,6 +70,7 @@
   </section>
 </div>
 
+<dialog class="sheet" id="addSheet"><div class="sheet-body" id="addBody"></div></dialog>
 <dialog class="sheet" id="sheet"><div class="sheet-body" id="sheetBody"></div></dialog>
 <div class="rest" id="rest" hidden role="timer" aria-live="polite">
   <div class="rest-txt"><b class="num" id="restTime">0:00</b><span id="restLabel"></span></div>

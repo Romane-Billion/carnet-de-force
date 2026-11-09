@@ -1,5 +1,6 @@
 import { EX, ALL, byId, CARDIO, PAUSE_EXO, FICHES } from "./data.js";
 import { SCHEMAS, LEGENDES } from "./schemas.js";
+import { initRepas, refreshRepas, REPAS_KEYS } from "./repas.js";
 
 /* ---------- Stockage sur le téléphone ---------- */
 const K = {seances: "carnet-seances-v2", encours: "carnet-encours-v2", tractions: "carnet-tractions-v2"};
@@ -311,7 +312,7 @@ $("hist").addEventListener("click", ev => {
 /* ---------- Sauvegarde ---------- */
 $("export").addEventListener("click", async () => {
   const name = `carnet-de-force-${today()}.json`;
-  const blob = new Blob([JSON.stringify({app: "carnet-de-force", version: 2, seances: sessions, tractions}, null, 1)], {type: "application/json"});
+  const blob = new Blob([JSON.stringify({app: "carnet-de-force", version: 2, seances: sessions, tractions, repas: Object.fromEntries(Object.entries(REPAS_KEYS).map(([k, key]) => [k, store.get(key, null)]))}, null, 1)], {type: "application/json"});
   const file = new File([blob], name, {type: "application/json"});
   try { if (navigator.canShare?.({files: [file]})){ await navigator.share({files: [file], title: "Sauvegarde carnet de force"}); return; } } catch (e) { if (e?.name === "AbortError") return; }
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -325,13 +326,21 @@ $("importFile").addEventListener("change", async ev => {
     for (const s of data.seances) if (s?.date && s.ex && !ids.has(s.id) && Object.values(s.ex).every(e => Array.isArray(e.sets))){ sessions.push(s); ids.add(s.id); n++; }
     if (Array.isArray(data.tractions)) for (const t of data.tractions) if (t?.date && !tractions.some(x => x.date === t.date)) tractions.push({date: t.date, n: +t.n || 0});
     sortS(sessions); tractions.sort((a, b) => a.date < b.date ? -1 : 1);
-    store.set(K.seances, sessions); store.set(K.tractions, tractions); renderAll();
+    store.set(K.seances, sessions); store.set(K.tractions, tractions);
+    if (data.repas){
+      const jr = store.get(REPAS_KEYS.jours, {}); for (const [d, j] of Object.entries(data.repas.jours || {})) if (!jr[d]) jr[d] = j; store.set(REPAS_KEYS.jours, jr);
+      const fv = store.get(REPAS_KEYS.favoris, []); for (const f of data.repas.favoris || []) if (!fv.some(x => x.nom === f.nom)) fv.push(f); store.set(REPAS_KEYS.favoris, fv);
+      const cp = store.get(REPAS_KEYS.corps, []); for (const c of data.repas.corps || []) if (!cp.some(x => x.date === c.date)) cp.push(c); cp.sort((x, y) => x.date < y.date ? -1 : 1); store.set(REPAS_KEYS.corps, cp);
+      if (data.repas.objectifs && !localStorage.getItem(REPAS_KEYS.objectifs)) store.set(REPAS_KEYS.objectifs, data.repas.objectifs);
+      refreshRepas();
+    }
+    renderAll();
     toast(n ? `${n} séance${n > 1 ? "s" : ""} importée${n > 1 ? "s" : ""}` : "Rien de nouveau dans ce fichier");
   } catch { toast("Ce fichier n'est pas une sauvegarde de cette version du carnet."); }
 });
 
 /* ---------- Onglets ---------- */
-const TABS = ["seance", "exos", "progres", "histo"];
+const TABS = ["seance", "repas", "exos", "progres", "histo"];
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
   TABS.forEach(t => $("p-" + t).hidden = t !== b.dataset.tab);
@@ -344,3 +353,4 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
 function renderAll(){ renderSeance(); renderFiches(); renderProgres(); renderHist(); }
 cur = loadCurrent(); saveCurrent();
 renderAll();
+initRepas();
