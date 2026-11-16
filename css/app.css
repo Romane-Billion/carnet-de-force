@@ -267,3 +267,4 @@ body.flash::after{content:"";position:fixed;inset:0;background:var(--good);opaci
 #pasteBox{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:16px}
 .sonrow{gap:8px}.sonrow>button{flex:1;font-size:.9rem}
 .banner.alt{border-left:4px solid var(--accent,#2563eb)}
+.volbox{display:flex;flex-direction:column;gap:6px}.choices.vol{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.choices.vol .choice{padding:8px 4px;font-size:.85rem;min-height:0}

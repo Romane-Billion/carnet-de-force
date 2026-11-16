@@ -252,18 +252,27 @@ function confettis(){
 let restT = null, audio = null, restEnd = 0, restDur = 0, wake = null;
 // Son de fin de pause : un fichier audio fabriqué ici (3 bips), joué par un élément <audio>.
 // Sur iPhone, il passe même en mode silencieux (contrairement aux bips Web Audio), tant que l'appli est ouverte.
-function wav(freqs){
+function wav(freqs, amp = 1){
   const sr = 22050, parts = freqs.map(([f, d, gap]) => ({f, n: Math.round(sr * d), g: Math.round(sr * gap)}));
   const n = parts.reduce((s, p) => s + p.n + p.g, 0), buf = new DataView(new ArrayBuffer(44 + n * 2));
   const w = (o, s) => [...s].forEach((c, i) => buf.setUint8(o + i, c.charCodeAt(0)));
   w(0, "RIFF"); buf.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); buf.setUint32(16, 16, true); buf.setUint16(20, 1, true); buf.setUint16(22, 1, true);
   buf.setUint32(24, sr, true); buf.setUint32(28, sr * 2, true); buf.setUint16(32, 2, true); buf.setUint16(34, 16, true); w(36, "data"); buf.setUint32(40, n * 2, true);
   let o = 44;
-  for (const p of parts){ for (let i = 0; i < p.n; i++){ const env = Math.min(1, i / 200, (p.n - i) / 400); const x = Math.sin(2 * Math.PI * p.f * i / sr) * 1.8; buf.setInt16(o, Math.max(-1, Math.min(1, x)) * 32000 * env, true); o += 2; } o += p.g * 2; }
+  for (const p of parts){ for (let i = 0; i < p.n; i++){ const env = Math.min(1, i / 200, (p.n - i) / 400); buf.setInt16(o, Math.sin(2 * Math.PI * p.f * i / sr) * 32000 * amp * env, true); o += 2; } o += p.g * 2; }
   return URL.createObjectURL(new Blob([buf], {type: "audio/wav"}));
 }
 // « TUUUT » : 3 longs bips forts (son saturé exprès pour porter), rejoués jusqu'à ce qu'elle touche l'écran (max ~30 s).
-const SON_FIN = new Audio(wav([[880, .7, .25], [880, .7, .25], [1175, 1.1, .6]])), SON_TIC = new Audio(wav([[660, .08, 0]]));
+// Volume réglable (Romane : le son fort lui faisait mal aux oreilles). Sur iPhone le volume d'un <audio> ne se règle pas
+// par le code : on fabrique donc le son directement plus ou moins fort. Par défaut : doux.
+const VOLUMES = {coupe: 0, doux: .12, moyen: .3, fort: .65}, VOL_NOMS = {coupe: "Coupée", doux: "Douce", moyen: "Moyenne", fort: "Forte"};
+const SON_FIN = new Audio(), SON_TIC = new Audio();
+let volume = "doux"; try { volume = JSON.parse(localStorage.getItem("carnet-reglages-v1") || "{}").volume || "doux"; } catch {}
+function setVolume(v){
+  volume = VOLUMES[v] != null ? v : "doux"; const a = VOLUMES[volume] || .001;
+  SON_FIN.src = wav([[740, .35, .2], [740, .35, .2], [988, .6, .5]], a); SON_TIC.src = wav([[660, .07, 0]], a * .7);
+}
+setVolume(volume);
 let audioOk = false;
 function unlockAudio(){
   try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch {}
@@ -273,7 +282,7 @@ function unlockAudio(){
 function play(s){ try { s.currentTime = 0; s.play().catch(() => {}); } catch {} }
 let alarmT = null;
 function stopAlarm(){ clearInterval(alarmT); alarmT = null; try { SON_FIN.pause(); } catch {} }
-function beep(){ stopAlarm(); play(SON_FIN); let n = 1; alarmT = setInterval(() => { if (++n > 8) return stopAlarm(); play(SON_FIN); }, 3800); }
+function beep(){ stopAlarm(); if (volume === "coupe") return; play(SON_FIN); let n = 1; alarmT = setInterval(() => { if (++n > 4) return stopAlarm(); play(SON_FIN); }, 3000); }
 document.addEventListener("pointerdown", () => { if (alarmT) stopAlarm(); }, true);
 async function keepAwake(){ try { if (!wake && navigator.wakeLock) { wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release", () => wake = null); } } catch {} }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && started()) keepAwake(); });
@@ -287,7 +296,7 @@ function startRest(sec, label, relance){
     const left = Math.max(0, Math.round((restEnd - Date.now()) / 1000));
     $("restTime").textContent = mmss(left);
     box.querySelector(".bar i").style.width = (left / restDur * 100) + "%";
-    if (left > 0 && left <= 3 && left !== tick.last) play(SON_TIC);
+    if (left > 0 && left <= 3 && left !== tick.last && volume !== "coupe") play(SON_TIC);
     tick.last = left;
     if (left === 0){ clearInterval(restT); box.classList.add("over"); $("restTime").textContent = "Go !"; $("restLabel").textContent = "C'est reparti"; beep(); navigator.vibrate?.([250, 120, 250]);
       document.body.classList.add("flash"); setTimeout(() => document.body.classList.remove("flash"), 1600);
@@ -300,7 +309,10 @@ $("restPlus").addEventListener("click", () => { restEnd = Math.max(restEnd, Date
 $("restIphone").addEventListener("click", () => { const left = Math.max(1, Math.round((restEnd - Date.now()) / 1000)); reglages.racc ? lancerRaccourci(left) : guideRaccourci(); });
 $("guideRacc").addEventListener("click", () => guideRaccourci());
 $("restStop").addEventListener("click", stopRest);
-$("testSon").addEventListener("click", e => { e.stopPropagation(); unlockAudio(); stopAlarm(); setTimeout(() => play(SON_FIN), 50); toast("Monte le volume : c'est ce son qui sonnera à la fin de chaque pause."); });
+function renderVol(){ $("volRow").innerHTML = Object.keys(VOLUMES).map(v => `<button type="button" class="choice" data-vol="${v}" aria-pressed="${v === volume}">${VOL_NOMS[v]}</button>`).join(""); }
+renderVol();
+$("volRow").addEventListener("click", e => { const b = e.target.closest("[data-vol]"); if (!b) return; e.stopPropagation(); unlockAudio(); stopAlarm(); setVolume(b.dataset.vol); reglages.volume = volume; store.set(KR, reglages); renderVol(); if (volume !== "coupe") setTimeout(() => play(SON_FIN), 80); else toast("Sonnerie coupée : il reste le flash vert et le grand « Go ! »."); });
+$("testSon").addEventListener("click", e => { e.stopPropagation(); unlockAudio(); stopAlarm(); if (volume === "coupe") return toast("La sonnerie est coupée : choisis Douce, Moyenne ou Forte."); setTimeout(() => play(SON_FIN), 50); toast("C'est ce son qui sonnera à la fin de chaque pause. Trop fort ou pas assez ? Change le niveau juste en dessous."); });
 
 /* ---------- Minuteur natif de l'iPhone (via un Raccourci) ---------- */
 // Le raccourci « Pause carnet » reçoit une durée en secondes et lance le minuteur de l'app Horloge,
