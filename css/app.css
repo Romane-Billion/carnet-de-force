@@ -266,3 +266,4 @@ body.flash::after{content:"";position:fixed;inset:0;background:var(--good);opaci
 .num.pos{color:var(--good)} .num.neg{color:var(--warn)}
 #pasteBox{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:16px}
 .sonrow{gap:8px}.sonrow>button{flex:1;font-size:.9rem}
+.banner.alt{border-left:4px solid var(--accent,#2563eb)}

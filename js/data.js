@@ -263,3 +263,29 @@ export const FICHES = [
 
 export const ALL = [...EX.A, ...EX.B];
 export const byId = Object.fromEntries(ALL.map(e => [e.id, e]));
+
+// Si la machine est prise : exercice de remplacement (validé par Romane le 16/11/2026).
+// Les séances faites avec le remplacement ne comptent pas dans la progression de l'exercice normal.
+// mode / unite comme plus haut ; charge = charge conseillée pour la 1re fois (à ajuster).
+export const ALT = {
+  traction: {nom:"Tirage vertical", mode:"charge", charge:25, unite:"kg", reps:10,
+    comment:"Prise un peu plus large que les épaules. Tire la barre vers le haut de ta poitrine en descendant les coudes, buste légèrement penché en arrière. Remonte en 2-3 s, bras presque tendus."},
+  tirage: {nom:"Tractions assistées", mode:"assist", charge:20.4, reps:8,
+    comment:"Genoux sur la plateforme, abdos serrés. Monte le menton au-dessus de la barre, redescends tout en bas bras tendus, en 2-3 s."},
+  presse: {nom:"Presse assise", mode:"charge", charge:50, unite:"kg",
+    comment:"Pieds hauts et écartés sur la plateforme, poussée par les talons. Descends en 3 s sans décoller le bas du dos du dossier."},
+  mollets: {nom:"Mollets debout sur une marche", mode:"reps", reps:20,
+    comment:"L'avant des pieds sur une marche ou un step, talons dans le vide, une main sur un support. Monte le plus haut possible, tiens 1 s, descends lentement sous la marche."},
+  dc: {nom:"Développé couché aux haltères", mode:"charge", charge:8, unite:"kg par haltère",
+    comment:"Allongée sur le banc, omoplates serrées. Descends les haltères en 2-3 s à hauteur de poitrine, coudes à 45°, puis pousse vers le haut."},
+  dips: {nom:"Dips sur un banc, pieds au sol", mode:"reps", reps:10,
+    comment:"Mains au bord du banc derrière toi, jambes pliées, pieds au sol. Descends en pliant les coudes vers l'arrière (pas plus de 90°), puis pousse. Jambes plus tendues = plus dur."},
+  militaire: {nom:"Développé épaules aux haltères, assise", mode:"charge", charge:6, unite:"kg par haltère",
+    comment:"Assise, dos collé au dossier redressé. Haltères à hauteur d'oreilles, pousse vers le haut sans cambrer, redescends en 2 s."},
+  pecdeck: {nom:"Écarté couché aux haltères", mode:"charge", charge:5, unite:"kg par haltère",
+    comment:"Allongée, bras au-dessus de la poitrine, coudes légèrement fléchis. Ouvre lentement les bras sur les côtés jusqu'à sentir l'étirement, puis referme comme pour enlacer un arbre."},
+  abduc: {nom:"Abduction couchée sur le côté", mode:"reps", reps:20, unite:"par jambe",
+    comment:"Allongée sur le côté, jambe du dessous pliée. Monte la jambe du dessus tendue, pied légèrement tourné vers le bas, sans basculer le bassin en arrière. 3 × 20 de chaque côté."},
+  releves: {nom:"Relevé de jambes allongée au sol", mode:"reps", reps:12,
+    comment:"Sur le dos, mains sous les fesses, bas du dos plaqué au sol. Monte les jambes jusqu'à la verticale, redescends lentement sans toucher le sol."}
+};

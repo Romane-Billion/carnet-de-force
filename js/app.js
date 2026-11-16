@@ -1,4 +1,4 @@
-import { EX, ALL, byId, CARDIO, PAUSE_EXO, FICHES } from "./data.js";
+import { EX, ALL, byId, CARDIO, PAUSE_EXO, ALT, FICHES } from "./data.js";
 import { SCHEMAS, LEGENDES } from "./schemas.js";
 import { initRepas, refreshRepas, REPAS_KEYS } from "./repas.js";
 
@@ -31,11 +31,13 @@ const loadTxt = (ex, c) => ex.mode === "assist" ? `-${fmt(c)} kg` : ex.mode === 
 
 /* ---------- Progression automatique ---------- */
 const bw = ex => ex.mode === "reps" || ex.mode === "time"; // poids du corps
+const altOf = ex => ALT[ex.fiche] || null;
+const eff = (ex, st) => st?.alt && altOf(ex) ? {...ex, ...altOf(ex), id: ex.id} : ex; // exercice réellement fait (remplacement si machine prise)
 const keyOf = ex => (ex.lie && ex.lie !== "presse") ? ex.lie : ex.id; // presse B garde sa propre progression (12 reps)
 function lastOf(key){
   for (let i = sessions.length - 1; i >= 0; i--){
     for (const [id, e] of Object.entries(sessions[i].ex || {})){
-      if (byId[id] && keyOf(byId[id]) === key && (e.sets || []).some(v => v)) return e;
+      if (byId[id] && keyOf(byId[id]) === key && !e.alt && (e.sets || []).some(v => v)) return e;
     }
   }
   return null;
@@ -107,26 +109,28 @@ function renderSeance(){
     <p class="muted small" style="margin:0">Pour démarrer. Touche ce que tu as fait.</p>
     <div class="choices">${CARDIO.choix.map(x => `<button type="button" class="choice" data-cardio="${esc(x)}" aria-pressed="${c === x}">${esc(x)}</button>`).join("")}</div>`;
   $("exList").innerHTML = list.map((ex, i) => {
-    const st = cur.ex[ex.id], p = plan(ex);
+    const st = cur.ex[ex.id], p = plan(ex), a = altOf(ex), fx = eff(ex, st);
     const fiche = FICHES.find(f => f.id === ex.fiche) || null;
-    const load = bw(ex) ? "" : st.charge == null ? " · charge à choisir" : ` · ${loadTxt(ex, st.charge)}`;
+    const load = bw(fx) ? (fx.unite ? ` · ${fx.unite}` : "") : st.charge == null ? " · charge à choisir" : ` · ${loadTxt(fx, st.charge)}`;
     const doneAll = st.sets.every(v => v);
     const prev = list[i - 1];
     const head = ex.bloc && prev?.bloc !== ex.bloc ? `<h2 class="bloc-title">${esc(ex.bloc)}</h2><p class="muted small" style="margin:0">Juste après le cardio, poignets échauffés. Pauses d'une minute.</p>`
       : !ex.bloc && prev?.bloc ? `<h2 class="bloc-title">Musculation</h2>` : "";
     return `${head}<div class="card ex ${doneAll ? "done" : ""}" id="ex-${ex.id}">
       <div class="ex-head"><h3>${i + 2}. ${esc(ex.nom)}</h3>${ex.nouveau ? `<span class="tag">Nouveau</span>` : ""}${ex.optionnel ? `<span class="tag soft">Optionnel</span>` : ""}</div>
+      ${st.alt ? `<div class="banner alt"><b>Machine prise, à la place : ${esc(a.nom)}</b><br>${esc(a.comment)}${a.charge != null ? `<br><span class="small">Charge conseillée pour commencer : ${loadTxt(fx, a.charge)}, à ajuster.</span>` : ""}</div>` : ""}
       <div class="target num">${ex.sets} × ${st.reps}${ex.mode === "time" ? " s" : " reps"}${load}</div>
-      ${p.msg && p.msg.startsWith("Progrès") ? `<div class="tip up">${esc(p.msg)}</div>` : ""}
-      <p class="muted small" style="margin:0">${esc(ex.tip)}</p>
+      ${!st.alt && p.msg && p.msg.startsWith("Progrès") ? `<div class="tip up">${esc(p.msg)}</div>` : ""}
+      ${st.alt ? "" : `<p class="muted small" style="margin:0">${esc(ex.tip)}</p>`}
       <div class="sets">${st.sets.map((v, k) => `<button type="button" class="set s${v}" data-set="${ex.id}:${k}" aria-label="Série ${k + 1} ${v === 1 ? "faite" : v === 2 ? "pas toutes les reps" : "à faire"}">${v === 1 ? "✓" : v === 2 ? "≈" : k + 1}</button>`).join("")}</div>
       <div class="restinfo"><span>⏱ Pause : <b>${mmss(ex.repos)}</b> entre les séries, <b>${mmss(ex.bloc ? ex.repos : PAUSE_EXO)}</b> avant l'exercice suivant</span><button type="button" class="ghost" data-pause="${ex.id}">Lancer la pause</button></div>
       <div class="row">
-        ${fiche ? `<button type="button" class="ghost" data-fiche="${fiche.id}">Comment faire ?</button>` : ""}
+        ${fiche && !st.alt ? `<button type="button" class="ghost" data-fiche="${fiche.id}">Comment faire ?</button>` : ""}
+        ${a ? `<button type="button" class="ghost" data-alt="${ex.id}">${st.alt ? "Revenir à l'exercice normal" : "Machine prise ?"}</button>` : ""}
         <button type="button" class="ghost" data-edit="${ex.id}">Modifier</button>
       </div>
       <div class="edit" id="edit-${ex.id}" hidden>
-        ${!bw(ex) ? `<label class="f">${ex.mode === "assist" ? "Assistance (kg)" : `Charge (${ex.unite || "kg"})`}<input type="number" inputmode="decimal" step="0.5" min="0" max="400" data-charge="${ex.id}" value="${st.charge ?? ""}"></label>` : ""}
+        ${!bw(fx) ? `<label class="f">${fx.mode === "assist" ? "Assistance (kg)" : `Charge (${fx.unite || "kg"})`}<input type="number" inputmode="decimal" step="0.5" min="0" max="400" data-charge="${ex.id}" value="${st.charge ?? ""}"></label>` : ""}
         <label class="f">Reps par série<input type="number" inputmode="numeric" min="1" max="60" data-reps="${ex.id}" value="${st.reps}"></label>
       </div>
     </div>`;
@@ -156,6 +160,13 @@ document.addEventListener("click", e => {
     renderSeance(); return;
   }
   if (t.dataset.pause){ const ex = byId[t.dataset.pause]; const st = cur.ex[ex.id]; startRest(st.sets.every(v => v) ? PAUSE_EXO : ex.repos, "Pause"); return; }
+  if (t.dataset.alt){
+    const ex = byId[t.dataset.alt], st = cur.ex[ex.id], a = altOf(ex);
+    if (!st.alt){ st.normal = {charge: st.charge, reps: st.reps}; st.alt = true; st.charge = a.charge ?? null; st.reps = a.reps ?? st.reps; }
+    else { st.alt = false; const n = st.normal || plan(ex); st.charge = n.charge; st.reps = n.reps; delete st.normal; }
+    if (!st.alt) delete st.alt;
+    saveCurrent(); renderSeance(); return;
+  }
   if (t.dataset.edit){ const el = $("edit-" + t.dataset.edit); el.hidden = !el.hidden; return; }
   if (t.dataset.fiche){ openFiche(t.dataset.fiche); return; }
   if (t.dataset.close !== undefined){ $("sheet").close(); return; }
@@ -185,7 +196,7 @@ $("finish").addEventListener("click", () => {
 /* ---------- Fin de séance : confettis et « ta progression » ---------- */
 function historique(key){ // toutes les fois où l'exercice a été fait (séries cochées), dans l'ordre
   const out = [];
-  for (const s of sessions) for (const [id, e] of Object.entries(s.ex || {})) if (byId[id] && keyOf(byId[id]) === key && (e.sets || []).some(v => v)) out.push({s, e, ex: byId[id]});
+  for (const s of sessions) for (const [id, e] of Object.entries(s.ex || {})) if (byId[id] && keyOf(byId[id]) === key && !e.alt && (e.sets || []).some(v => v)) out.push({s, e, ex: byId[id]});
   return out;
 }
 function ecart(ex, a, b){ // de a vers b, en clair
@@ -198,7 +209,7 @@ function ecart(ex, a, b){ // de a vers b, en clair
 function celebrer(fini, doc, ups){
   const mins = Math.round((doc.createdAt - (fini.startedAt || doc.createdAt)) / 60000);
   const wk = monday(today()), semaine = sessions.filter(s => monday(s.date) === wk).length;
-  const lignes = EX[fini.type].filter(e => doc.ex[e.id]).map(e => {
+  const lignes = EX[fini.type].filter(e => doc.ex[e.id] && !doc.ex[e.id].alt).map(e => {
     const h = historique(keyOf(e)), moi = h.findIndex(x => x.s === doc), now = doc.ex[e.id];
     const avant = moi > 0 ? h[moi - 1].e : null, debut = h[0] && h[0].s !== doc ? h[0].e : null;
     const ok = now.sets.filter(v => v === 1).length;
@@ -391,7 +402,7 @@ function renderProgres(){
   // Charges
   const keys = [...new Map(ALL.filter(e => e.mode !== "reps" || true).map(e => [keyOf(e), e])).values()];
   const rows = keys.map(ex => {
-    const pts = []; for (const s of sessions) for (const [id, e] of Object.entries(s.ex || {})) if (byId[id] && keyOf(byId[id]) === keyOf(ex) && (e.sets || []).some(v => v)) pts.push({d: s.date, c: e.charge, r: e.reps});
+    const pts = []; for (const s of sessions) for (const [id, e] of Object.entries(s.ex || {})) if (byId[id] && keyOf(byId[id]) === keyOf(ex) && !e.alt && (e.sets || []).some(v => v)) pts.push({d: s.date, c: e.charge, r: e.reps});
     return {ex, pts};
   }).filter(x => x.pts.length);
   if (!rows.length){ $("pCharges").innerHTML = `<h2>Charges</h2><p class="muted" style="margin:0">Termine ta première séance : tu verras ici, pour chaque exercice, la charge du départ, celle d'aujourd'hui et ce que tu as gagné.</p>`; return; }
@@ -440,7 +451,7 @@ function renderHist(){
   if (!sessions.length){ $("hist").innerHTML = `<div class="card empty"><h3>Pas encore de séance</h3><p class="muted" style="margin:0">Quand tu touches « Terminer la séance », elle apparaît ici.</p></div>`; return; }
   $("hist").innerHTML = [...sessions].reverse().map(s => {
     const items = Object.entries(s.ex || {}).filter(([id]) => byId[id]).map(([id, e]) => {
-      const ex = byId[id], ok = e.sets.filter(v => v === 1).length, part = e.sets.filter(v => v === 2).length;
+      const ex = eff(byId[id], e), ok = e.sets.filter(v => v === 1).length, part = e.sets.filter(v => v === 2).length;
       return `<li><b>${esc(ex.nom.replace(/,.*$/, ""))}</b> · ${bw(ex) ? "" : loadTxt(ex, e.charge ?? 0) + " · "}<span class="num">${ok}/${ex.sets} séries de ${e.reps}${part ? `, ${part} incomplète${part > 1 ? "s" : ""}` : ""}</span></li>`;
     }).join("");
     return `<div class="card"><div class="row" style="justify-content:space-between"><h3>Séance ${esc(s.type)} · ${dateFr(s.date)}</h3><button class="ghost" data-del="${esc(s.id)}" type="button">Supprimer</button></div>
