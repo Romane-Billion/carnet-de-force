@@ -39,10 +39,23 @@ function render(){
   $("rDate").innerHTML = `<button type="button" class="ghost nav" data-day="-1" aria-label="Jour précédent">‹</button>
     <div><div class="eyebrow">${isToday ? "Aujourd'hui" : ""}</div><h2>${dateFr(day)}</h2></div>
     <button type="button" class="ghost nav" data-day="1" aria-label="Jour suivant" ${isToday ? "disabled" : ""}>›</button>`;
-  $("rBilan").innerHTML = `${bar("Calories", t.k, obj.k, "kcal", "k")}${bar("Protéines", t.p, obj.p, "g", "p")}
-    <div class="mac2">${bar("Glucides", t.g, obj.g, "g", "g")}${bar("Lipides", t.l, obj.l, "g", "l")}</div>
-    ${t.p < obj.p * .8 && t.k > obj.k * .6 ? `<div class="tip">Pense aux protéines : il t'en manque ${r0(obj.p - t.p)} g. Un skyr, du thon, des œufs ou du poulet aident vite.</div>` : ""}
-    <label class="f pas">Pas aujourd'hui (facultatif, objectif ${obj.pas.toLocaleString("fr-FR")})<input type="number" inputmode="numeric" min="0" max="100000" id="rPas" value="${j.pas ?? ""}" placeholder="ex. 6500"></label>`;
+  const ring = (lab, v, goal, kind, col) => {
+    const pct = goal ? v / goal : 0, ok = kind === "min" ? pct >= .9 : pct <= 1.05;
+    const R = 34, C2 = 2 * Math.PI * R, dash = Math.min(1, pct) * C2;
+    const msg = kind === "min" ? (ok ? "objectif atteint" : `il manque ${r0(goal - v)} g`) : (ok ? `reste ${r0(Math.max(0, goal - v))} g` : `${r0(v - goal)} g de trop`);
+    return `<div class="ring ${ok ? "ok" : "ko"}"><svg viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="${R}" class="rbg"/><circle cx="42" cy="42" r="${R}" class="rfg" stroke-dasharray="${dash} ${C2}" transform="rotate(-90 42 42)"/>
+      <text x="42" y="40" text-anchor="middle" class="rv">${r0(v)}</text><text x="42" y="56" text-anchor="middle" class="ru">/ ${goal} g</text></svg>
+      <b>${lab}</b><span class="small">${msg}</span></div>`;
+  };
+  const kOk = t.k <= obj.k * 1.05;
+  $("rBilan").innerHTML = `<div class="mac"><div class="mac-top"><b>Calories</b><span class="num">${r0(t.k)} / ${obj.k} kcal</span></div>
+      <div class="mbar"><i class="${kOk ? "" : "warnb"}" style="width:${Math.min(100, t.k / obj.k * 100)}%"></i></div>
+      <span class="muted small">${t.k <= obj.k ? `reste ${r0(obj.k - t.k)} kcal` : `${r0(t.k - obj.k)} kcal au-dessus`}</span></div>
+    <div class="rings">${ring("Protéines", t.p, obj.p, "min")}${ring("Lipides", t.l, obj.l, "max")}${ring("Glucides", t.g, obj.g, "max")}</div>
+    <p class="muted small" style="margin:0">Vert : tu es dans ton objectif. Orange : à surveiller (protéines en dessous, lipides ou glucides au-dessus).</p>
+    <label class="f pas">Pas aujourd'hui (facultatif, objectif ${obj.pas.toLocaleString("fr-FR")})<input type="number" inputmode="numeric" min="0" max="100000" id="rPas" value="${j.pas ?? ""}" placeholder="ex. 6500"></label>
+    <button type="button" class="ghost" id="pasteChat">📋 Coller un repas envoyé dans le chat</button>`;
+  renderSemaine();
   const favs = favoris.length ? `<div class="favs"><span class="eyebrow">Favoris, en un tap</span><div class="chips2">${favoris.map((f, i) => `<button type="button" class="chip2" data-fav="${i}">+ ${esc(f.nom)} <small>${r0(tot(f.items).k)} kcal</small></button>`).join("")}</div></div>` : "";
   $("rListe").innerHTML = favs + MOMENTS.map(([m, nom]) => {
     const its = j.items.map((it, idx) => ({it, idx})).filter(x => x.it.moment === m);
@@ -56,6 +69,76 @@ function render(){
     <div class="edit4">${[["k","Calories (kcal)"],["p","Protéines (g)"],["g","Glucides (g)"],["l","Lipides (g)"],["pas","Pas"]].map(([k, l]) => `<label class="f">${l}<input type="number" inputmode="numeric" data-obj="${k}" value="${obj[k]}"></label>`).join("")}</div>
     <p class="muted small" style="margin:0">Calculés pour une sèche légère (1,68 m, 60 kg, peu active en semaine). Tu peux les changer.</p>
     <button type="button" class="link" id="objReset">Revenir aux valeurs conseillées</button>`;
+}
+
+/* ---------- La semaine ---------- */
+function renderSemaine(){
+  const days = []; for (let i = 6; i >= 0; i--){ const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() - i); const k = iso(d); days.push({k, t: tot((jours[k]?.items) || []), n: (jours[k]?.items || []).length}); }
+  const full = days.filter(d => d.n), max = Math.max(obj.k * 1.3, ...days.map(d => d.t.k));
+  const avg = k => full.length ? full.reduce((s, d) => s + d.t[k], 0) / full.length : 0;
+  const H = 120, y = v => H - v / max * H;
+  $("rSemaine").innerHTML = `<h2>Ta semaine</h2>
+    <svg class="wchart" viewBox="0 0 350 ${H + 34}" role="img" aria-label="Calories des 7 derniers jours">
+      ${days.map((d, i) => { const x = 14 + i * 48, h = d.t.k / max * H, okP = d.t.p >= obj.p * .9;
+        return `<rect x="${x}" y="${H - h}" width="34" height="${h}" rx="5" class="${d.t.k > obj.k * 1.05 ? "wk-ko" : "wk-ok"}"/>
+          <text x="${x + 17}" y="${H + 14}" text-anchor="middle" class="wl">${dateFr(d.k, {weekday:"narrow"})}${new Date(d.k + "T12:00:00").getDate()}</text>
+          ${d.n ? `<text x="${x + 17}" y="${H + 29}" text-anchor="middle" class="wp ${okP ? "pos" : "neg"}">${r0(d.t.p)}g</text>` : ""}`; }).join("")}
+      <line x1="8" x2="344" y1="${y(obj.k)}" y2="${y(obj.k)}" class="wgoal"/><text x="344" y="${y(obj.k) - 4}" text-anchor="end" class="wl">${obj.k} kcal</text>
+    </svg>
+    <p class="muted small" style="margin:0">Barres : calories par jour (orange si au-dessus de l'objectif). Sous chaque jour : protéines (vert si au moins ${r0(obj.p * .9)} g).</p>
+    ${full.length ? `<div class="stats"><div class="stat"><span class="eyebrow">Moy. calories</span><b class="num">${r0(avg("k"))}</b><span class="muted small">objectif ${obj.k}</span></div>
+      <div class="stat"><span class="eyebrow">Moy. protéines</span><b class="num ${avg("p") >= obj.p * .9 ? "pos" : "neg"}">${r0(avg("p"))} g</b><span class="muted small">objectif ${obj.p}</span></div>
+      <div class="stat"><span class="eyebrow">Moy. lipides</span><b class="num ${avg("l") <= obj.l * 1.05 ? "pos" : "neg"}">${r0(avg("l"))} g</b><span class="muted small">objectif ${obj.l}</span></div></div>
+      <p class="muted small" style="margin:0">Moyennes sur les ${full.length} jour${full.length > 1 ? "s" : ""} remplis. Glucides : ${r0(avg("g"))} g (objectif ${obj.g}).</p>` : `<p class="muted small" style="margin:0">Remplis quelques jours pour voir tes moyennes.</p>`}`;
+}
+
+/* ---------- Import d'un repas envoyé dans le chat ----------
+   Lien : https://romane-billion.github.io/carnet-de-force/#repas=<JSON encodé>
+   JSON : {"m":"midi","d":"2026-11-16","i":[["Galette boudin noir",600,25,55,30,"1 galette"], …]}  (nom, kcal, P, G, L, quantité) ; m et d facultatifs. */
+function parseRepas(txt){
+  const m = String(txt || "").match(/#repas=([^\s]+)/); if (!m) return null;
+  try {
+    const o = JSON.parse(decodeURIComponent(m[1]));
+    const items = (o.i || []).filter(x => Array.isArray(x) && x[0] && isFinite(+x[1])).map(x => ({nom: String(x[0]).slice(0, 80), k: +x[1] || 0, p: +x[2] || 0, g: +x[3] || 0, l: +x[4] || 0, q: String(x[5] || "envoyé depuis le chat").slice(0, 40)}));
+    if (!items.length) return null;
+    return {items, moment: MOMENTS.some(x => x[0] === o.m) ? o.m : momentNow(), date: /^\d{4}-\d{2}-\d{2}$/.test(o.d || "") ? o.d : today()};
+  } catch { return null; }
+}
+function showImport(rep){
+  pick = {moment: rep.moment, imp: rep};
+  const t = tot(rep.items);
+  $("addBody").innerHTML = `<div class="row" style="justify-content:space-between"><h2>Repas du chat</h2><button class="ghost" type="button" data-closeadd>Fermer</button></div>
+    <ul class="small">${rep.items.map(i => `<li><b>${esc(i.nom)}</b> · ${esc(i.q)} · ${r0(i.k)} kcal · P ${r1(i.p)} · G ${r1(i.g)} · L ${r1(i.l)}</li>`).join("")}</ul>
+    <div class="tip">Total : ${r0(t.k)} kcal · ${r0(t.p)} g de protéines · ${r0(t.g)} g de glucides · ${r0(t.l)} g de lipides</div>
+    <div class="edit">${`<label class="f">Repas<select id="impM">${MOMENTS.map(([k, n]) => `<option value="${k}" ${k === rep.moment ? "selected" : ""}>${n}</option>`).join("")}</select></label>`}
+      <label class="f">Jour<input type="date" id="impD" value="${rep.date}"></label></div>
+    <button type="button" class="primary big-btn" id="impAdd">Ajouter à mon carnet</button>`;
+  const d = $("addSheet"); if (!d.open) d.showModal ? d.showModal() : d.setAttribute("open", "");
+}
+function importFromHash(){
+  const rep = parseRepas(location.hash); if (!rep) return;
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  history.replaceState(null, "", location.pathname + location.search);
+  if (!standalone && /iPhone|iPad/.test(navigator.userAgent)){
+    // Sur iPhone, Safari et l'appli de l'écran d'accueil ne partagent pas leurs données : on passe par le presse-papiers.
+    const link = location.href.split("#")[0] + "#repas=" + encodeURIComponent(JSON.stringify({m: rep.moment, d: rep.date, i: rep.items.map(i => [i.nom, i.k, i.p, i.g, i.l, i.q])}));
+    $("addBody").innerHTML = `<h2>Ouvre plutôt ton appli</h2><p style="margin:0">Ce lien s'est ouvert dans Safari, mais ton carnet est dans l'appli de ton écran d'accueil. Copie le repas, ouvre l'appli, onglet Repas, puis « Coller un repas envoyé dans le chat ».</p>
+      <button type="button" class="primary big-btn" id="copyRep">Copier le repas</button><button class="ghost" type="button" data-closeadd>Fermer</button>`;
+    $("copyRep").onclick = () => navigator.clipboard.writeText(link).then(() => toast("Copié ! Ouvre maintenant ton appli.")).catch(() => toast("La copie n'a pas marché : reste appuyée sur le lien dans le chat et choisis Copier."));
+    const d = $("addSheet"); d.showModal ? d.showModal() : d.setAttribute("open", "");
+    return;
+  }
+  showImport(rep);
+}
+async function pasteChat(){
+  let txt = "";
+  try { txt = await navigator.clipboard.readText(); } catch {}
+  const rep = parseRepas(txt);
+  if (rep){ showImport(rep); return; }
+  $("addBody").innerHTML = `<div class="row" style="justify-content:space-between"><h2>Coller un repas</h2><button class="ghost" type="button" data-closeadd>Fermer</button></div>
+    <p class="muted small" style="margin:0">Dans le chat, reste appuyée sur le lien du repas, choisis « Copier le lien », puis colle-le ici.</p>
+    <textarea id="pasteBox" rows="3" placeholder="Colle le lien ici"></textarea><button type="button" class="primary" id="pasteGo">Lire le repas</button>`;
+  const d = $("addSheet"); if (!d.open) d.showModal ? d.showModal() : d.setAttribute("open", "");
 }
 
 /* ---------- Poids et mensurations ---------- */
@@ -233,6 +316,9 @@ document.addEventListener("click", e => {
     corps = corps.filter(c => c.date !== e2.date); const prev = store.get(K.corps, []).find(c => c.date === e2.date) || {};
     corps.push({...prev, ...e2}); corps.sort((a, b2) => a.date < b2.date ? -1 : 1); store.set(K.corps, corps); render(); toast("Mesures notées"); return;
   }
+  if (b.id === "pasteChat"){ pasteChat(); return; }
+  if (b.id === "pasteGo"){ const rep = parseRepas($("pasteBox").value); if (rep) showImport(rep); else toast("Je ne trouve pas de repas dans ce texte. Copie bien le lien entier."); return; }
+  if (b.id === "impAdd"){ const rep = pick.imp, d0 = day; day = $("impD").value || today(); addItems(rep.items, $("impM").value); const t = tot(rep.items); closeAdd(); toast(`Ajouté : ${r0(t.k)} kcal, ${r0(t.p)} g de protéines`); if (day !== d0) render(); return; }
   if (b.id === "objReset"){ obj = {...DEF_OBJ}; store.set(K.objectifs, obj); render(); return; }
 });
 document.addEventListener("input", e => {
@@ -248,6 +334,6 @@ document.addEventListener("change", e => {
 $("addSheet").addEventListener("close", stopScan);
 $("addSheet").addEventListener("click", e => { if (e.target === $("addSheet")) closeAdd(); });
 
-export function initRepas(){ day = today(); render(); }
+export function initRepas(){ day = today(); render(); importFromHash(); window.addEventListener("hashchange", importFromHash); }
 export function refreshRepas(){ jours = store.get(K.jours, {}); favoris = store.get(K.favoris, []); corps = store.get(K.corps, []); obj = {...DEF_OBJ, ...store.get(K.objectifs, {})}; render(); }
 export const REPAS_KEYS = K;

@@ -31,6 +31,7 @@
   <section class="panel" id="p-seance">
     <header class="card jour" id="jour"></header>
     <div class="card ex" id="cardio"></div>
+    <div class="row sonrow"><button class="ghost" id="testSon" type="button">🔊 Tester la sonnerie</button><button class="ghost" id="guideRacc" type="button">📱 Minuteur iPhone</button></div>
     <div class="panel" id="exList"></div>
     <button class="primary big-btn" id="finish" type="button">Terminer la séance</button>
   </section>
@@ -39,6 +40,7 @@
     <div class="card daynav" id="rDate"></div>
     <div class="card stack" id="rBilan"></div>
     <div class="panel" id="rListe"></div>
+    <div class="card stack" id="rSemaine"></div>
     <details class="card stack" id="rObj"></details>
     <div class="card stack" id="rCorps"></div>
     <p class="muted small credits">Aliments : table Ciqual de l'Anses et Open Food Facts. Les plats du dehors sont des estimations.</p>
@@ -64,7 +66,7 @@
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
     </div>
-    <p class="muted small credits">Version 5 · 9 novembre 2026</p>
+    <p class="muted small credits">Version 6 · 16 novembre 2026</p>
     <div class="card" id="install">
       <h3>Installer sur l'iPhone</h3>
       <ol class="muted small"><li>Ouvre cette page dans Safari.</li><li>Touche le bouton Partager (carré avec une flèche).</li><li>Choisis « Sur l'écran d'accueil ».</li></ol>
@@ -73,11 +75,12 @@
 </div>
 
 <dialog class="sheet" id="addSheet"><div class="sheet-body" id="addBody"></div></dialog>
+<dialog class="sheet celeb" id="celeb"><div class="sheet-body" id="celebBody"></div></dialog>
 <dialog class="sheet" id="sheet"><div class="sheet-body" id="sheetBody"></div></dialog>
 <div class="rest" id="rest" hidden role="timer" aria-live="polite">
   <div class="rest-txt"><b class="num" id="restTime">0:00</b><span id="restLabel"></span></div>
   <div class="bar"><i></i></div>
-  <div class="rest-btns"><button type="button" id="restPlus">+30 s</button><button type="button" id="restStop">Passer</button></div>
+  <div class="rest-btns"><button type="button" id="restIphone">📱 iPhone</button><button type="button" id="restPlus">+30 s</button><button type="button" id="restStop">Passer</button></div>
 </div>
 <div class="toast" id="toast" hidden></div>
 <script type="module" src="js/app.js"></script>

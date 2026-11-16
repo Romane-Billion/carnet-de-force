@@ -10,6 +10,7 @@ function body(p, o = {}){
   if (o.glute) s += `<circle cx="${o.glute[0]}" cy="${o.glute[1]}" r="17" fill="${C.hot}" opacity=".85"/>`;
   if (o.abs) s += `<ellipse cx="${o.abs[0]}" cy="${o.abs[1]}" rx="9" ry="16" transform="rotate(${o.absRot || 0} ${o.abs[0]} ${o.abs[1]})" fill="${C.hot}" opacity=".85"/>`;
   if (o.back) s += `<ellipse cx="${o.back[0]}" cy="${o.back[1]}" rx="9" ry="18" transform="rotate(${o.backRot || 0} ${o.back[0]} ${o.back[1]})" fill="${C.hot}" opacity=".85"/>`;
+  for (const h of o.hl || []) s += `<ellipse cx="${h[0]}" cy="${h[1]}" rx="${h[2]}" ry="${h[3]}" transform="rotate(${h[4] || 0} ${h[0]} ${h[1]})" fill="${C.hot}" opacity=".85"/>`;
   s += L(p.hip, p.kn, 12) + L(p.kn, p.an, 10);
   if (p.toe) s += L(p.an, p.toe, 8);
   s += L(p.sh, p.hip, 17);
@@ -107,8 +108,127 @@ const hipthrust = [
     + txt(12, 24, "barre dans le pli", {col:C.acc, bold:true}) + txt(12, 40, "de la hanche,", {col:C.acc}) + txt(12, 56, "pas sur les os", {col:C.acc}), "Hip thrust, arrivée : corps à l'horizontale des épaules aux genoux")
 ];
 
-export const SCHEMAS = {ext45, negatives, releves, presse: pressepieds, pressepieds, hipthrust};
+/* ---------- Outils pour les nouveaux dessins ---------- */
+const seg = (a, b, w, col = C.ink) => `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/>`;
+const blob = (x, y, rx, ry, rot = 0) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${rot} ${x} ${y})" fill="${C.hot}" opacity=".85"/>`;
+const rect = (x, y, w, h, col = C.eq, rot = 0) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${col}" transform="rotate(${rot} ${x + w / 2} ${y + h / 2})"/>`;
+const head = (x, y) => `<circle cx="${x}" cy="${y}" r="11" fill="${C.ink}"/>`;
+const titre = (t, sub, col) => txt(14, 24, t, {bold:true}) + (sub ? txt(14, 42, sub, {col: col || C.eq}) : "");
+// silhouette de face : centre x, épaules y, hanches y, bras [coudeG, mainG, coudeD, mainD], jambes [genouG, piedG, genouD, piedD]
+function front(cx, shy, hipy, bras, jambes){
+  const sL = [cx - 22, shy], sR = [cx + 22, shy], hL = [cx - 13, hipy], hR = [cx + 13, hipy];
+  return seg([cx, shy], [cx, hipy], 24) + seg(sL, sR, 12) + seg(sL, bras[0], 8) + seg(bras[0], bras[1], 7) + seg(sR, bras[2], 8) + seg(bras[2], bras[3], 7)
+    + seg(hL, jambes[0], 12) + seg(jambes[0], jambes[1], 10) + seg(hR, jambes[2], 12) + seg(jambes[2], jambes[3], 10) + head(cx, shy - 22);
+}
+
+/* ---------- Tractions assistées (machine à genoux) ---------- */
+const machineT = padY => `${seg([236, 20], [236, 206], 7, C.eq)}${seg([236, 30], [120, 30], 6, C.eq)}${seg([236, 120], [196, 120], 5, C.eq)}
+  ${seg([236, padY + 6], [178, padY + 6], 5, C.eq)}${rect(104, padY, 76, 11)}`;
+const traction = [
+  svg(floor + machineT(171) + body({head:[168,62], sh:[150,74], hip:[150,132], kn:[150,168], an:[112,168], el:[150,54], wr:[150,32]}, {back:[141,96]})
+    + txt(14, 64, "DÉPART", {bold:true}) + txt(14, 82, "bras tendus,") + txt(14, 98, "épaules basses,") + txt(14, 114, "abdos serrés") + txt(14, 144, "genoux sur", {col:C.eq}) + txt(14, 160, "le coussin", {col:C.eq}), "Tractions assistées, départ : bras tendus"),
+  svg(floor + machineT(139) + body({head:[168,24], sh:[150,42], hip:[150,100], kn:[150,136], an:[112,136], el:[128,58], wr:[148,32]}, {back:[141,62]})
+    + arrow(266, 170, 266, 70) + txt(14, 64, "ARRIVÉE", {bold:true}) + txt(14, 82, "menton au-dessus") + txt(14, 98, "des poignées") + txt(14, 124, "coudes vers", {col:C.eq}) + txt(14, 140, "les poches", {col:C.eq}), "Tractions assistées, arrivée : menton au-dessus des poignées")
+];
+
+/* ---------- Presse inclinée, vue de côté ---------- */
+const rail = `${seg([96, 206], [270, 32], 6, C.soft)}${rect(30, 168, 80, 12, C.eq, -8)}${rect(14, 112, 16, 66, C.eq, -30)}`;
+const plateauP = (x, y) => rect(x - 6, y - 26, 12, 52, C.eq, 45);
+const presse = [
+  svg(floor + rail + plateauP(176, 146) + body({head:[38,124], sh:[52,140], hip:[92,166], kn:[132,118], an:[170,148], toe:[178,138], el:[80,152], wr:[96,170]}, {glute:[88,170]})
+    + titre("DÉPART : genoux à 90°", "pas plus bas pour ton genou", C.bad) + txt(196, 186, "descends", {col:C.eq}) + txt(196, 202, "en 3 s", {col:C.eq}), "Presse inclinée, départ : genoux pliés à 90 degrés"),
+  svg(floor + rail + plateauP(206, 98) + body({head:[38,124], sh:[52,140], hip:[92,166], kn:[148,130], an:[198,104], toe:[206,92], el:[80,152], wr:[96,170]}, {glute:[88,170]})
+    + arrow(214, 160, 250, 124) + titre("ARRIVÉE : jambes tendues", "genoux pas verrouillés") + txt(170, 190, "pousse avec", {col:C.eq}) + txt(170, 206, "les talons", {col:C.eq}), "Presse inclinée, arrivée : jambes tendues")
+];
+
+/* ---------- Mollets à la presse ---------- */
+const mollets = [
+  svg(floor + rail + plateauP(208, 86) + body({head:[38,124], sh:[52,140], hip:[92,166], kn:[148,130], an:[190,104], toe:[204,88], el:[80,152], wr:[96,170]}, {hl:[[172,118,7,16,-55]]})
+    + titre("DÉPART : talons vers toi", "pointe des pieds en bas du plateau") + txt(150, 190, "étire bien", {col:C.eq}) + txt(150, 206, "le mollet", {col:C.eq}), "Mollets à la presse, départ : talons qui descendent"),
+  svg(floor + rail + plateauP(222, 72) + body({head:[38,124], sh:[52,140], hip:[92,166], kn:[148,130], an:[190,104], toe:[214,82], el:[80,152], wr:[96,170]}, {hl:[[172,118,7,16,-55]]})
+    + arrow(232, 120, 256, 96) + titre("ARRIVÉE : sur la pointe", "tiens 1 s, genoux tendus") , "Mollets à la presse, arrivée : pointe des pieds poussée")
+];
+
+/* ---------- Développé couché ---------- */
+const bancDC = `${rect(54, 146, 150, 12)}${seg([74, 158], [74, 206], 6, C.eq)}${seg([186, 158], [186, 206], 6, C.eq)}`;
+const barreDC = (x, y) => `${seg([x - 4, y - 30], [x - 4, y + 30], 5, C.eq)}<circle cx="${x - 4}" cy="${y}" r="20" fill="none" stroke="${C.eq}" stroke-width="6"/>`;
+const corpsDC = (el, wr) => body({head:[64,134], sh:[86,138], hip:[168,140], kn:[214,120], an:[224,200], toe:[240,204], el, wr}, {hl:[[108,128,16,8]]});
+const dc = [
+  svg(floor + bancDC + barreDC(100, 66) + corpsDC([94, 108], [100, 72]) + titre("DÉPART : bras tendus", "omoplates serrées") + txt(196, 64, "pieds à plat", {col:C.eq}) + txt(196, 80, "au sol", {col:C.eq}), "Développé couché, départ : barre bras tendus"),
+  svg(floor + bancDC + barreDC(112, 112) + corpsDC([84, 150], [112, 118]) + arrow(150, 50, 150, 96) + titre("ARRIVÉE : barre au bas", "des pectoraux") + txt(170, 64, "descends en 2-3 s", {col:C.eq}) + txt(170, 80, "coudes à 45°", {col:C.eq}), "Développé couché, arrivée : barre au bas de la poitrine")
+];
+
+/* ---------- Abducteurs (vue de face) ---------- */
+const siegeAb = `${rect(110, 120, 80, 14)}${rect(118, 50, 64, 70, C.soft)}`;
+const abduc = [
+  svg(floor + siegeAb + rect(112, 132, 10, 26) + rect(178, 132, 10, 26) + front(150, 76, 126, [[118, 104], [112, 128], [182, 104], [188, 128]], [[136, 144], [134, 200], [164, 144], [166, 200]])
+    + blob(126, 120, 9, 12) + blob(174, 120, 9, 12) + titre("DÉPART : jambes fermées", "dos collé au dossier"), "Abducteurs, départ : jambes presque fermées"),
+  svg(floor + siegeAb + rect(84, 132, 10, 26) + rect(206, 132, 10, 26) + front(150, 76, 126, [[118, 104], [112, 128], [182, 104], [188, 128]], [[104, 144], [112, 200], [196, 144], [188, 200]])
+    + blob(126, 120, 9, 12) + blob(174, 120, 9, 12) + arrow(96, 186, 58, 186) + arrow(204, 186, 242, 186)
+    + titre("ARRIVÉE : ouvre fort", "tiens 1 s, referme en 2-3 s"), "Abducteurs, arrivée : jambes ouvertes")
+];
+
+/* ---------- Tirage vertical ---------- */
+const machineTir = `${seg([150, 6], [150, 36], 2, C.eq)}${rect(100, 156, 70, 12)}${rect(166, 132, 30, 12)}${seg([132, 168], [132, 206], 6, C.eq)}`;
+const tirage = [
+  svg(floor + machineTir + seg([110, 36], [196, 36], 6, C.eq) + body({head:[158,76], sh:[138,92], hip:[134,152], kn:[180,148], an:[186,202], el:[144,64], wr:[150,38]}, {back:[130,114]})
+    + txt(14, 64, "DÉPART", {bold:true}) + txt(14, 82, "bras tendus,") + txt(14, 98, "poitrine sortie"), "Tirage vertical, départ : bras tendus vers la barre"),
+  svg(floor + machineTir + seg([150, 36], [160, 90], 2, C.eq) + seg([116, 92], [202, 92], 6, C.eq) + body({head:[158,78], sh:[138,96], hip:[134,152], kn:[180,148], an:[186,202], el:[126,124], wr:[156,96]}, {back:[130,116]})
+    + arrow(230, 40, 230, 86) + txt(14, 64, "ARRIVÉE", {bold:true}) + txt(14, 82, "barre en haut") + txt(14, 98, "de la poitrine") + txt(14, 128, "coudes vers", {col:C.eq}) + txt(14, 144, "le bas", {col:C.eq}), "Tirage vertical, arrivée : barre en haut de la poitrine")
+];
+
+/* ---------- Dips assistés ---------- */
+const machineD = padY => `${seg([236, 20], [236, 206], 7, C.eq)}${seg([236, 120], [146, 120], 6, C.eq)}${seg([236, padY + 6], [178, padY + 6], 5, C.eq)}${rect(104, padY, 76, 11)}`;
+const dips = [
+  svg(floor + machineD(172) + body({head:[158,52], sh:[150,68], hip:[150,128], kn:[150,166], an:[112,166], el:[158,94], wr:[158,118]}, {hl:[[155,84,5,11,-15]]})
+    + txt(14, 64, "DÉPART", {bold:true}) + txt(14, 82, "bras tendus,") + txt(14, 98, "épaules basses,") + txt(14, 114, "buste droit"), "Dips assistés, départ : bras tendus"),
+  svg(floor + machineD(196) + body({head:[158,82], sh:[150,98], hip:[150,154], kn:[150,190], an:[112,190], el:[124,108], wr:[150,118]}, {hl:[[136,104,6,12,-70]]})
+    + arrow(260, 60, 260, 110) + txt(14, 64, "ARRIVÉE", {bold:true}) + txt(14, 82, "coudes à 90°,") + txt(14, 98, "pas plus bas") + txt(14, 128, "coudes vers", {col:C.eq}) + txt(14, 144, "l'arrière", {col:C.eq}), "Dips assistés, arrivée : coudes pliés à 90 degrés")
+];
+
+/* ---------- Développé militaire ---------- */
+const bancM = `${rect(116, 60, 12, 92)}${rect(112, 150, 70, 12)}${seg([140, 162], [140, 206], 6, C.eq)}`;
+const halt = (x, y) => `${rect(x - 14, y - 4, 28, 8, C.ink)}${rect(x - 16, y - 8, 6, 16, C.ink)}${rect(x + 10, y - 8, 6, 16, C.ink)}`;
+const militaire = [
+  svg(floor + bancM + body({head:[144,62], sh:[138,82], hip:[136,148], kn:[182,150], an:[188,202], el:[150,108], wr:[154,82]}, {hl:[[140,84,10,8]]}) + halt(154, 78)
+    + titre("DÉPART : charge aux épaules", "coudes sous les mains"), "Développé militaire, départ : charge à hauteur des épaules"),
+  svg(floor + bancM + body({head:[144,62], sh:[138,82], hip:[136,148], kn:[182,150], an:[188,202], el:[146,54], wr:[150,26]}, {hl:[[140,84,10,8]]}) + halt(150, 22)
+    + arrow(200, 90, 200, 40) + txt(14, 64, "ARRIVÉE", {bold:true}) + txt(14, 82, "bras tendus") + txt(14, 120, "abdos et fesses", {col:C.eq}) + txt(14, 136, "serrés : ne", {col:C.eq}) + txt(14, 152, "cambre pas", {col:C.eq}), "Développé militaire, arrivée : bras tendus au-dessus de la tête")
+];
+
+/* ---------- Pec deck (vue de face) ---------- */
+const pecMachine = `${rect(122, 50, 56, 100, C.soft)}${rect(110, 140, 80, 12)}`;
+const pecdeck = [
+  svg(floor + pecMachine + rect(66, 52, 10, 40) + rect(224, 52, 10, 40) + front(150, 86, 138, [[96, 92], [74, 70], [204, 92], [226, 70]], [[134, 166], [134, 204], [166, 166], [166, 204]])
+    + blob(150, 102, 18, 9) + titre("DÉPART : bras ouverts", "coudes un peu pliés"), "Pec deck, départ : bras ouverts sur les côtés"),
+  svg(floor + pecMachine + rect(130, 50, 10, 40) + rect(160, 50, 10, 40) + front(150, 86, 138, [[118, 100], [138, 72], [182, 100], [162, 72]], [[134, 166], [134, 204], [166, 166], [166, 204]])
+    + blob(150, 102, 18, 9) + arrow(80, 140, 116, 140) + arrow(220, 140, 184, 140) + titre("ARRIVÉE : bras fermés", "serre 1 s"), "Pec deck, arrivée : bras ramenés devant")
+];
+
+/* ---------- Handstand ---------- */
+const mur = `${rect(212, 8, 14, 198, C.soft)}`;
+const hsBody = (o = {}) => body({head:[176,178], sh:[180,154], hip:[190,98], kn:[196,62], an:[200,28], toe:[208,22], el:[178,180], wr:[176,204]}, {hl:[[185,128,8,16,8]], ...o});
+const hs_mur = [
+  svg(floor + mur + body({head:[118,178], sh:[124,154], hip:[170,118], kn:[196,140], an:[208,150], toe:[210,138], el:[120,180], wr:[116,204]}, {})
+    + txt(14, 24, "1. Monte en marchant", {bold:true}) + txt(14, 42, "les pieds au mur,", {col:C.eq}) + txt(14, 58, "mains vers le mur", {col:C.eq}) + arrow(140, 200, 168, 200), "Handstand au mur, étape 1 : monter les pieds au mur"),
+  svg(floor + mur + hsBody() + titre("2. Ventre face au mur", "mains à 20-30 cm du mur") + txt(14, 90, "pousse fort", {col:C.acc, bold:true}) + txt(14, 106, "dans le sol", {col:C.acc})
+    + txt(14, 136, "fesses et abdos", {col:C.eq}) + txt(14, 152, "serrés, regarde", {col:C.eq}) + txt(14, 168, "entre tes mains", {col:C.eq}), "Handstand au mur, étape 2 : ventre face au mur, corps aligné")
+];
+const hs_taps = [
+  svg(floor + mur + hsBody() + titre("1. Handstand au mur", "poids sur les deux mains"), "Shoulder taps, étape 1 : handstand au mur"),
+  svg(floor + mur + hsBody() + seg([180, 154], [160, 168], 8) + seg([160, 168], [172, 150], 7)
+    + txt(14, 24, "2. Touche l'épaule", {bold:true}) + txt(14, 42, "décale le poids,", {col:C.eq}) + txt(14, 58, "bassin immobile", {col:C.eq}) + txt(14, 120, "1 s pour lever,", {col:C.eq}) + txt(14, 136, "1 s pour reposer", {col:C.eq}), "Shoulder taps, étape 2 : une main touche l'épaule opposée")
+];
+const hs_decol = [
+  svg(floor + mur + hsBody() + titre("1. Pieds au mur", "corps bien aligné"), "Décoller du mur, étape 1 : pieds contre le mur"),
+  svg(floor + mur + body({head:[172,178], sh:[176,154], hip:[180,98], kn:[182,62], an:[184,28], toe:[188,20], el:[174,180], wr:[172,204]}, {hl:[[178,128,8,16]]})
+    + arrow(202, 50, 192, 50) + titre("2. Décolle les pieds", "et cherche l'équilibre") + txt(14, 120, "appuie avec le", {col:C.eq}) + txt(14, 136, "bout des doigts", {col:C.eq}) + txt(14, 152, "pour ne pas tomber", {col:C.eq}), "Décoller du mur, étape 2 : pieds décollés, en équilibre")
+];
+
+export const SCHEMAS = {ext45, negatives, releves, presse, pressepieds, mollets, hipthrust, traction, dc, abduc, tirage, dips, militaire, pecdeck, hs_mur, hs_taps, hs_decol};
 export const LEGENDES = {
   ext45:["Départ", "Arrivée"], negatives:["Départ", "Arrivée"], releves:["Départ", "Arrivée"],
-  presse:["À faire", "À éviter"], pressepieds:["À faire", "À éviter"], hipthrust:["Départ", "Arrivée"]
+  presse:["Départ", "Arrivée"], pressepieds:["Pieds : à faire", "Pieds : à éviter"], hipthrust:["Départ", "Arrivée"],
+  mollets:["Départ", "Arrivée"], traction:["Départ", "Arrivée"], dc:["Départ", "Arrivée"], abduc:["Départ", "Arrivée"], tirage:["Départ", "Arrivée"],
+  dips:["Départ", "Arrivée"], militaire:["Départ", "Arrivée"], pecdeck:["Départ", "Arrivée"], hs_mur:["Étape 1", "Étape 2"], hs_taps:["Étape 1", "Étape 2"], hs_decol:["Étape 1", "Étape 2"]
 };

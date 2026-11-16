@@ -30,6 +30,7 @@ const unitOf = ex => ex.mode === "assist" ? "kg d'assistance" : ex.mode === "cha
 const loadTxt = (ex, c) => ex.mode === "assist" ? `-${fmt(c)} kg` : ex.mode === "charge" ? `${fmt(c)} ${ex.unite || "kg"}` : "poids du corps";
 
 /* ---------- Progression automatique ---------- */
+const bw = ex => ex.mode === "reps" || ex.mode === "time"; // poids du corps
 const keyOf = ex => (ex.lie && ex.lie !== "presse") ? ex.lie : ex.id; // presse B garde sa propre progression (12 reps)
 function lastOf(key){
   for (let i = sessions.length - 1; i >= 0; i--){
@@ -46,13 +47,13 @@ function plan(ex){
     let start = ex.start;
     if (ex.lie === "presse"){ const p = plan(byId.presse); start = p.charge != null ? Math.max(0, p.charge - 10) : null; }
     if (ex.lie && ex.lie !== "presse") start = byId[ex.lie].start;
-    return {charge: ex.mode === "reps" ? null : start, reps: ex.min, msg: start == null && ex.mode !== "reps" ? "Première fois : choisis ta charge avec « Modifier »." : ""};
+    return {charge: bw(ex) ? null : start, reps: ex.min, msg: start == null && !bw(ex) ? "Première fois : choisis ta charge avec « Modifier »." : ""};
   }
   const done = (e.sets || []).filter(v => v === 1).length;
   const all = done >= ex.sets && e.reps >= ex.min;
   let c = e.charge ?? null, r = e.reps ?? ex.min, msg = "";
   if (all){
-    if (r < ex.max){ r++; msg = `Progrès : ${r} reps cette fois.`; }
+    if (r < ex.max){ r++; msg = `Progrès : ${r}${ex.mode === "time" ? " s" : " reps"} cette fois.`; }
     else if (ex.mode === "assist"){ c = palier(ex, c); const n = palier(ex, Math.max(0, c - ex.step)); msg = n === 0 ? "Progrès : sans assistance !" : `Progrès : ${fmt(c - n)} kg d'assistance en moins.`; c = n; r = ex.min; }
     else if (ex.mode === "charge" && c != null){ c = c + ex.step; r = ex.min; msg = `Progrès : +${fmt(ex.step)} kg.`; }
     else msg = "Tu es au maximum prévu, garde ce niveau.";
@@ -81,8 +82,8 @@ const saveCurrent = () => store.set(K.encours, cur);
 const started = () => cur.cardio || Object.values(cur.ex).some(e => e.sets.some(v => v));
 
 function duree(type){
-  const list = EX[type].filter(e => !e.optionnel);
-  let s = CARDIO.min * 60;
+  const list = EX[type].filter(e => !e.optionnel && !e.bloc);
+  let s = CARDIO.min * 60 + (EX[type].some(e => e.bloc) ? 600 : 0);
   for (const e of list) s += e.sets * 45 + (e.sets - 1) * e.repos + 60;
   s += (list.length - 1) * PAUSE_EXO;
   const m = Math.round(s / 60 / 5) * 5;
@@ -107,22 +108,25 @@ function renderSeance(){
     <div class="choices">${CARDIO.choix.map(x => `<button type="button" class="choice" data-cardio="${esc(x)}" aria-pressed="${c === x}">${esc(x)}</button>`).join("")}</div>`;
   $("exList").innerHTML = list.map((ex, i) => {
     const st = cur.ex[ex.id], p = plan(ex);
-    const fiche = ex.schema ? FICHES.find(f => f.schema === ex.schema || f.id === ex.schema) : null;
-    const load = ex.mode === "reps" ? "" : st.charge == null ? " · charge à choisir" : ` · ${loadTxt(ex, st.charge)}`;
+    const fiche = FICHES.find(f => f.id === ex.fiche) || null;
+    const load = bw(ex) ? "" : st.charge == null ? " · charge à choisir" : ` · ${loadTxt(ex, st.charge)}`;
     const doneAll = st.sets.every(v => v);
-    return `<div class="card ex ${doneAll ? "done" : ""}" id="ex-${ex.id}">
+    const prev = list[i - 1];
+    const head = ex.bloc && prev?.bloc !== ex.bloc ? `<h2 class="bloc-title">${esc(ex.bloc)}</h2><p class="muted small" style="margin:0">Juste après le cardio, poignets échauffés. Pauses d'une minute.</p>`
+      : !ex.bloc && prev?.bloc ? `<h2 class="bloc-title">Musculation</h2>` : "";
+    return `${head}<div class="card ex ${doneAll ? "done" : ""}" id="ex-${ex.id}">
       <div class="ex-head"><h3>${i + 2}. ${esc(ex.nom)}</h3>${ex.nouveau ? `<span class="tag">Nouveau</span>` : ""}${ex.optionnel ? `<span class="tag soft">Optionnel</span>` : ""}</div>
       <div class="target num">${ex.sets} × ${st.reps}${ex.mode === "time" ? " s" : " reps"}${load}</div>
       ${p.msg && p.msg.startsWith("Progrès") ? `<div class="tip up">${esc(p.msg)}</div>` : ""}
       <p class="muted small" style="margin:0">${esc(ex.tip)}</p>
       <div class="sets">${st.sets.map((v, k) => `<button type="button" class="set s${v}" data-set="${ex.id}:${k}" aria-label="Série ${k + 1} ${v === 1 ? "faite" : v === 2 ? "pas toutes les reps" : "à faire"}">${v === 1 ? "✓" : v === 2 ? "≈" : k + 1}</button>`).join("")}</div>
-      <div class="restinfo"><span>⏱ Pause : <b>${mmss(ex.repos)}</b> entre les séries, <b>${mmss(PAUSE_EXO)}</b> avant l'exercice suivant</span><button type="button" class="ghost" data-pause="${ex.id}">Lancer la pause</button></div>
+      <div class="restinfo"><span>⏱ Pause : <b>${mmss(ex.repos)}</b> entre les séries, <b>${mmss(ex.bloc ? ex.repos : PAUSE_EXO)}</b> avant l'exercice suivant</span><button type="button" class="ghost" data-pause="${ex.id}">Lancer la pause</button></div>
       <div class="row">
         ${fiche ? `<button type="button" class="ghost" data-fiche="${fiche.id}">Comment faire ?</button>` : ""}
         <button type="button" class="ghost" data-edit="${ex.id}">Modifier</button>
       </div>
       <div class="edit" id="edit-${ex.id}" hidden>
-        ${ex.mode !== "reps" ? `<label class="f">${ex.mode === "assist" ? "Assistance (kg)" : `Charge (${ex.unite || "kg"})`}<input type="number" inputmode="decimal" step="0.5" min="0" max="400" data-charge="${ex.id}" value="${st.charge ?? ""}"></label>` : ""}
+        ${!bw(ex) ? `<label class="f">${ex.mode === "assist" ? "Assistance (kg)" : `Charge (${ex.unite || "kg"})`}<input type="number" inputmode="decimal" step="0.5" min="0" max="400" data-charge="${ex.id}" value="${st.charge ?? ""}"></label>` : ""}
         <label class="f">Reps par série<input type="number" inputmode="numeric" min="1" max="60" data-reps="${ex.id}" value="${st.reps}"></label>
       </div>
     </div>`;
@@ -145,7 +149,7 @@ document.addEventListener("click", e => {
       const list = EX[cur.type], idx = list.findIndex(x => x.id === id);
       if (st.sets.every(v => v)){
         const next = list.slice(idx + 1).find(x => !cur.ex[x.id].sets.every(v => v));
-        if (next) startRest(PAUSE_EXO, `Pause, ensuite : ${next.nom}`);
+        if (next) startRest(next.bloc && next.bloc === ex.bloc ? ex.repos : PAUSE_EXO, `Pause, ensuite : ${next.nom}`);
         else stopRest();
       } else startRest(ex.repos, `Repos, ensuite série ${st.sets.findIndex(v => !v) + 1}`);
     }
@@ -173,22 +177,98 @@ $("finish").addEventListener("click", () => {
   stopRest();
   const prochaine = newSession(cur.type === "A" ? "B" : "A");
   const ups = EX[cur.type].filter(e => ex[e.id]).map(e => ({e, p: plan(e)})).filter(x => x.p.msg.startsWith("Progrès"));
+  const fini = cur;
   cur = prochaine; saveCurrent(); renderAll(); window.scrollTo({top: 0});
-  toast(`Séance enregistrée, bravo ! ${ups.length ? `${ups.length} progrès pour la prochaine fois.` : ""}`);
+  celebrer(fini, doc, ups);
 });
+
+/* ---------- Fin de séance : confettis et « ta progression » ---------- */
+function historique(key){ // toutes les fois où l'exercice a été fait (séries cochées), dans l'ordre
+  const out = [];
+  for (const s of sessions) for (const [id, e] of Object.entries(s.ex || {})) if (byId[id] && keyOf(byId[id]) === key && (e.sets || []).some(v => v)) out.push({s, e, ex: byId[id]});
+  return out;
+}
+function ecart(ex, a, b){ // de a vers b, en clair
+  if (!a) return "";
+  if (ex.mode === "assist"){ const d = (a.charge ?? 0) - (b.charge ?? 0); if (d > 0) return `${fmt(d)} kg d'assistance en moins`; if (d < 0) return `${fmt(-d)} kg d'assistance en plus`; }
+  else if (ex.mode === "charge"){ const d = (b.charge ?? 0) - (a.charge ?? 0); if (d) return `${d > 0 ? "+" : ""}${fmt(d)} kg`; }
+  const dr = (b.reps ?? 0) - (a.reps ?? 0); if (dr) return `${dr > 0 ? "+" : ""}${dr}${ex.mode === "time" ? " s" : " rep" + (Math.abs(dr) > 1 ? "s" : "")}`;
+  return "pareil";
+}
+function celebrer(fini, doc, ups){
+  const mins = Math.round((doc.createdAt - (fini.startedAt || doc.createdAt)) / 60000);
+  const wk = monday(today()), semaine = sessions.filter(s => monday(s.date) === wk).length;
+  const lignes = EX[fini.type].filter(e => doc.ex[e.id]).map(e => {
+    const h = historique(keyOf(e)), moi = h.findIndex(x => x.s === doc), now = doc.ex[e.id];
+    const avant = moi > 0 ? h[moi - 1].e : null, debut = h[0] && h[0].s !== doc ? h[0].e : null;
+    const ok = now.sets.filter(v => v === 1).length;
+    const val = bw(e) ? `${now.reps}${e.mode === "time" ? " s" : " reps"}` : now.charge == null ? `charge non notée × ${now.reps}` : `${loadTxt(e, now.charge)} × ${now.reps}`;
+    const v1 = avant ? ecart(e, avant, now) : "première fois", v2 = debut && debut !== avant ? ecart(e, debut, now) : "";
+    const pos = s => /^\+|moins/.test(s);
+    return `<li><b>${esc(e.nom.replace(/,.*$/, ""))}</b> · ${val} · ${ok}/${e.sets} séries
+      <div class="small">vs dernière fois : <span class="${pos(v1) ? "pos" : ""}">${v1}</span>${v2 ? ` · depuis le début : <span class="${pos(v2) ? "pos" : ""}">${v2}</span>` : ""}</div></li>`;
+  }).join("");
+  const t0 = tractions[0], t1 = tractions[tractions.length - 1];
+  $("celebBody").innerHTML = `<div class="celeb-top"><div class="big-emoji" aria-hidden="true">🎉</div><h2>Séance ${fini.type} terminée !</h2>
+      <p class="muted" style="margin:0">${mins > 5 && mins < 300 ? `${mins} min · ` : ""}${fini.cardio ? "cardio fait · " : ""}bravo Romane</p></div>
+    <div class="stats"><div class="stat"><span class="eyebrow">Cette semaine</span><b class="num">${semaine} / 2</b></div>
+      <div class="stat"><span class="eyebrow">Au total</span><b class="num">${sessions.length}</b><span class="muted small">séance${sessions.length > 1 ? "s" : ""}</span></div>
+      <div class="stat"><span class="eyebrow">Tractions strictes</span><b class="num">${t1 ? t1.n : "1-2"}</b><span class="muted small">${t0 && t1 && t1.n > t0.n ? `+${t1.n - t0.n} depuis le début` : "au dernier test"}</span></div></div>
+    <h3>Ta progression</h3><ul class="prog">${lignes || "<li>Cardio fait.</li>"}</ul>
+    ${ups.length ? `<div class="tip up"><b>La prochaine fois :</b> ${ups.map(u => `${esc(u.e.nom.replace(/,.*$/, ""))} (${u.p.msg.replace("Progrès : ", "").replace(/\.$/, "")})`).join(", ")}.</div>` : ""}
+    <button type="button" class="primary big-btn" data-closeceleb>Fermer</button>`;
+  const d = $("celeb"); d.showModal ? d.showModal() : d.setAttribute("open", "");
+  confettis();
+}
+document.addEventListener("click", e => { if (e.target.closest("[data-closeceleb]")) $("celeb").close(); });
+function confettis(){
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cv = document.createElement("canvas"); cv.className = "confetti"; ($("celeb").open ? $("celeb") : document.body).append(cv);
+  const W = cv.width = innerWidth * devicePixelRatio, H = cv.height = innerHeight * devicePixelRatio, ctx = cv.getContext("2d");
+  const cols = ["#F2B705", "#1F5BD6", "#1E8A4C", "#C2352B", "#E5A23C", "#6E9BFF"];
+  const ps = Array.from({length: 160}, () => ({x: W / 2 + (Math.random() - .5) * W * .3, y: H * .35, vx: (Math.random() - .5) * 18 * devicePixelRatio, vy: (-Math.random() * 18 - 6) * devicePixelRatio,
+    s: (6 + Math.random() * 6) * devicePixelRatio, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: cols[Math.floor(Math.random() * cols.length)]}));
+  const t0 = performance.now();
+  (function frame(t){
+    ctx.clearRect(0, 0, W, H);
+    for (const p of ps){ p.vy += .5 * devicePixelRatio; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore(); }
+    if (t - t0 < 3500) requestAnimationFrame(frame); else cv.remove();
+  })(t0);
+}
 
 /* ---------- Minuteur de pause ---------- */
 let restT = null, audio = null, restEnd = 0, restDur = 0, wake = null;
-function unlockAudio(){ try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume?.(); } catch {} }
-function beep(){
-  if (!audio) return;
-  try { [0, .35, .7].forEach(d => { const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = 880; o.connect(g); g.connect(audio.destination);
-    const t = audio.currentTime + d; g.gain.setValueAtTime(.3, t); g.gain.exponentialRampToValueAtTime(.001, t + .25); o.start(t); o.stop(t + .25); }); } catch {}
+// Son de fin de pause : un fichier audio fabriqué ici (3 bips), joué par un élément <audio>.
+// Sur iPhone, il passe même en mode silencieux (contrairement aux bips Web Audio), tant que l'appli est ouverte.
+function wav(freqs){
+  const sr = 22050, parts = freqs.map(([f, d, gap]) => ({f, n: Math.round(sr * d), g: Math.round(sr * gap)}));
+  const n = parts.reduce((s, p) => s + p.n + p.g, 0), buf = new DataView(new ArrayBuffer(44 + n * 2));
+  const w = (o, s) => [...s].forEach((c, i) => buf.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); buf.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); buf.setUint32(16, 16, true); buf.setUint16(20, 1, true); buf.setUint16(22, 1, true);
+  buf.setUint32(24, sr, true); buf.setUint32(28, sr * 2, true); buf.setUint16(32, 2, true); buf.setUint16(34, 16, true); w(36, "data"); buf.setUint32(40, n * 2, true);
+  let o = 44;
+  for (const p of parts){ for (let i = 0; i < p.n; i++){ const env = Math.min(1, i / 200, (p.n - i) / 400); const x = Math.sin(2 * Math.PI * p.f * i / sr) * 1.8; buf.setInt16(o, Math.max(-1, Math.min(1, x)) * 32000 * env, true); o += 2; } o += p.g * 2; }
+  return URL.createObjectURL(new Blob([buf], {type: "audio/wav"}));
 }
+// « TUUUT » : 3 longs bips forts (son saturé exprès pour porter), rejoués jusqu'à ce qu'elle touche l'écran (max ~30 s).
+const SON_FIN = new Audio(wav([[880, .7, .25], [880, .7, .25], [1175, 1.1, .6]])), SON_TIC = new Audio(wav([[660, .08, 0]]));
+let audioOk = false;
+function unlockAudio(){
+  try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch {}
+  if (audioOk) return;
+  for (const s of [SON_FIN, SON_TIC]){ s.muted = true; s.play().then(() => { s.pause(); s.currentTime = 0; s.muted = false; audioOk = true; }).catch(() => { s.muted = false; }); }
+}
+function play(s){ try { s.currentTime = 0; s.play().catch(() => {}); } catch {} }
+let alarmT = null;
+function stopAlarm(){ clearInterval(alarmT); alarmT = null; try { SON_FIN.pause(); } catch {} }
+function beep(){ stopAlarm(); play(SON_FIN); let n = 1; alarmT = setInterval(() => { if (++n > 8) return stopAlarm(); play(SON_FIN); }, 3800); }
+document.addEventListener("pointerdown", () => { if (alarmT) stopAlarm(); }, true);
 async function keepAwake(){ try { if (!wake && navigator.wakeLock) { wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release", () => wake = null); } } catch {} }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && started()) keepAwake(); });
-function startRest(sec, label){
+function startRest(sec, label, relance){
   unlockAudio(); clearInterval(restT);
+  if (!relance && reglages.auto && reglages.racc) lancerRaccourci(sec);
   restDur = sec; restEnd = Date.now() + sec * 1000;
   const box = $("rest"); box.hidden = false; box.classList.remove("over");
   $("restLabel").textContent = label;
@@ -196,14 +276,51 @@ function startRest(sec, label){
     const left = Math.max(0, Math.round((restEnd - Date.now()) / 1000));
     $("restTime").textContent = mmss(left);
     box.querySelector(".bar i").style.width = (left / restDur * 100) + "%";
+    if (left > 0 && left <= 3 && left !== tick.last) play(SON_TIC);
+    tick.last = left;
     if (left === 0){ clearInterval(restT); box.classList.add("over"); $("restTime").textContent = "Go !"; $("restLabel").textContent = "C'est reparti"; beep(); navigator.vibrate?.([250, 120, 250]);
-      setTimeout(() => { if (box.classList.contains("over")) box.hidden = true; }, 8000); }
+      document.body.classList.add("flash"); setTimeout(() => document.body.classList.remove("flash"), 1600);
+      setTimeout(() => { if (box.classList.contains("over") && !alarmT) box.hidden = true; }, 8000); }
   };
   tick(); restT = setInterval(tick, 250);
 }
-function stopRest(){ clearInterval(restT); $("rest").hidden = true; }
-$("restPlus").addEventListener("click", () => { restEnd = Math.max(restEnd, Date.now()) + 30000; restDur += 30; $("rest").classList.remove("over"); clearInterval(restT); const l = $("restLabel").textContent; startRest(Math.round((restEnd - Date.now()) / 1000), l); });
+function stopRest(){ clearInterval(restT); stopAlarm(); $("rest").hidden = true; }
+$("restPlus").addEventListener("click", () => { restEnd = Math.max(restEnd, Date.now()) + 30000; restDur += 30; $("rest").classList.remove("over"); clearInterval(restT); const l = $("restLabel").textContent; startRest(Math.round((restEnd - Date.now()) / 1000), l, true); });
+$("restIphone").addEventListener("click", () => { const left = Math.max(1, Math.round((restEnd - Date.now()) / 1000)); reglages.racc ? lancerRaccourci(left) : guideRaccourci(); });
+$("guideRacc").addEventListener("click", () => guideRaccourci());
 $("restStop").addEventListener("click", stopRest);
+$("testSon").addEventListener("click", e => { e.stopPropagation(); unlockAudio(); stopAlarm(); setTimeout(() => play(SON_FIN), 50); toast("Monte le volume : c'est ce son qui sonnera à la fin de chaque pause."); });
+
+/* ---------- Minuteur natif de l'iPhone (via un Raccourci) ---------- */
+// Le raccourci « Pause carnet » reçoit une durée en secondes et lance le minuteur de l'app Horloge,
+// qui sonne même si elle change d'appli ou verrouille l'écran.
+const RACC = "Pause carnet", KR = "carnet-reglages-v1";
+const reglages = Object.assign({racc: false, auto: false}, store.get(KR, {}));
+function lancerRaccourci(sec){ location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(RACC)}&input=text&text=${Math.round(sec)}`; }
+function guideRaccourci(){
+  $("sheetBody").innerHTML = `<button class="ghost close" type="button" data-close>Fermer</button><h2>Minuteur de l'iPhone</h2>
+    <p style="margin:0">Le minuteur de l'appli sonne tant que l'appli est ouverte. Si tu veux pouvoir changer d'appli ou verrouiller l'écran, l'appli peut aussi lancer le <b>vrai minuteur de l'iPhone</b> (app Horloge). Il faut créer une fois un petit raccourci, 2 minutes.</p>
+    <h3>Créer le raccourci (une seule fois)</h3>
+    <ol>
+      <li>Ouvre l'app <b>Raccourcis</b>, onglet <b>Raccourcis</b> en bas, puis <b>+</b> en haut à droite.</li>
+      <li>Touche le nom en haut (« Nouveau raccourci »), choisis <b>Renommer</b> et écris exactement : <b>${RACC}</b></li>
+      <li>En bas, dans <b>Rechercher des actions</b>, tape <b>minuteur</b>. Choisis <b>Démarrer le minuteur</b> : c'est celle de l'app <b>Horloge</b>, icône <b>orange</b>. (Pas une action avec une icône noire ni une durée « de 5 min à 14 j » : ce n'est pas la bonne.)</li>
+      <li>L'action affiche « Démarrer le minuteur pour <b>30 minutes</b> ». Touche le <b>30</b> (en bleu). Au-dessus du clavier, touche <b>Entrée du raccourci</b>.</li>
+      <li>Touche ensuite <b>minutes</b> et choisis <b>secondes</b>. L'action doit lire : « Démarrer le minuteur pour <b>Entrée du raccourci secondes</b> ».</li>
+      <li>Touche <b>OK</b> en haut à droite. C'est fini.</li>
+    </ol>
+    <div class="banner">Si à l'étape 4 « Entrée du raccourci » n'apparaît pas, envoie-moi une capture dans le chat, on le fera ensemble.</div>
+    <h3>Tester</h3>
+    <p style="margin:0">Touche le bouton : l'iPhone ouvre Raccourcis une seconde et lance un minuteur de 10 s. Pour revenir, touche <b>◀</b> tout en haut à gauche de l'écran.</p>
+    <button type="button" class="primary" id="raccTest">Tester avec 10 secondes</button>
+    <label class="row"><input type="checkbox" id="raccOk" ${reglages.racc ? "checked" : ""}> Ça marche, j'ai le raccourci</label>
+    <label class="row"><input type="checkbox" id="raccAuto" ${reglages.auto ? "checked" : ""}> Le lancer automatiquement à chaque pause</label>
+    <p class="muted small" style="margin:0">Sans l'automatique : pendant une pause, touche <b>📱 iPhone</b> sur le minuteur quand tu veux poser le téléphone. Avec l'automatique, l'iPhone passe par Raccourcis à chaque série cochée (il faut revenir avec ◀ à chaque fois).</p>`;
+  const d = $("sheet"); if (!d.open) d.showModal ? d.showModal() : d.setAttribute("open", "");
+  $("raccTest").onclick = () => lancerRaccourci(10);
+  $("raccOk").onchange = e => { reglages.racc = e.target.checked; if (!reglages.racc){ reglages.auto = false; $("raccAuto").checked = false; } store.set(KR, reglages); };
+  $("raccAuto").onchange = e => { reglages.auto = e.target.checked; if (reglages.auto){ reglages.racc = true; $("raccOk").checked = true; } store.set(KR, reglages); };
+}
 
 /* ---------- Fiches ---------- */
 function schemaPair(id){
@@ -212,11 +329,14 @@ function schemaPair(id){
   return `<div class="pair">${s.map((x, i) => `<figure><div class="svgbox">${x}</div><figcaption>${lg[i]}</figcaption></figure>`).join("")}</div>`;
 }
 function ficheHTML(f, full){
-  return `${schemaPair(f.schema)}
+  const sch = (f.schemas || []).slice(0, full ? 9 : 1).map(schemaPair).join("");
+  return `${sch}
     <p style="margin:0">${esc(f.quoi)}</p>
     <p style="margin:0"><b>Ce qui travaille :</b> ${esc(f.travaille)}</p>
-    ${full ? `<h3>Pas à pas</h3><ol>${f.etapes.map(x => `<li>${esc(x)}</li>`).join("")}</ol>
-    ${f.eviter ? `<div class="banner warn"><b>À éviter :</b> ${esc(f.eviter)}</div>` : ""}
+    ${full ? `${f.reglage ? `<div class="banner"><b>Réglage et mise en place :</b> ${esc(f.reglage)}</div>` : ""}
+    <h3>Le mouvement</h3><ol>${f.etapes.map(x => `<li>${esc(x)}</li>`).join("")}</ol>
+    ${f.tempo ? `<p style="margin:0"><b>Tempo :</b> ${esc(f.tempo)}</p>` : ""}
+    ${f.erreurs?.length ? `<div class="banner warn"><b>Erreurs à éviter</b><ul>${f.erreurs.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
     ${f.plus ? `<p class="muted" style="margin:0"><b>Pour progresser :</b> ${esc(f.plus)}</p>` : ""}` : ""}`;
 }
 function openFiche(id){
@@ -225,13 +345,13 @@ function openFiche(id){
   const d = $("sheet"); d.showModal ? d.showModal() : d.setAttribute("open", "");
 }
 function renderFiches(){
-  const nouveaux = FICHES.filter(f => f.nouveau), autres = FICHES.filter(f => !f.nouveau && !f.essai), essai = FICHES.filter(f => f.essai);
-  const card = f => `<div class="card stack"><div class="ex-head"><h2>${esc(f.titre)}</h2>${f.nouveau ? `<span class="tag">Nouveau</span>` : ""}${f.essai ? `<span class="tag soft">Pas dans tes séances</span>` : ""}</div>${ficheHTML(f, false)}<button type="button" class="primary" data-fiche="${f.id}">Voir le pas à pas</button></div>`;
-  const connus = [...new Map(ALL.filter(e => !e.nouveau).map(e => [e.nom, e])).values()];
-  $("lib").innerHTML = `<h2 class="sec">Nouveaux pour toi</h2>${nouveaux.map(card).join("")}
-    ${autres.map(card).join("")}
-    <h2 class="sec">À réessayer un jour</h2>${essai.map(card).join("")}
-    <h2 class="sec">Ceux que tu connais</h2><div class="card stack">${connus.map(e => `<div><b>${esc(e.nom)}</b><p class="muted small" style="margin:2px 0 0">${esc(e.tip)}</p></div>`).join("")}</div>`;
+  const card = f => `<div class="card stack"><div class="ex-head"><h2>${esc(f.titre)}</h2>${f.nouveau ? `<span class="tag">Nouveau</span>` : ""}${f.essai ? `<span class="tag soft">Pas dans tes séances</span>` : ""}</div>${ficheHTML(f, false)}<button type="button" class="primary" data-fiche="${f.id}">Voir la fiche complète</button></div>`;
+  const inA = id => EX.A.some(e => e.fiche === id), inB = id => EX.B.some(e => e.fiche === id);
+  const grp = (t, list) => list.length ? `<h2 class="sec">${t}</h2>${list.map(card).join("")}` : "";
+  const hs = FICHES.filter(f => f.id.startsWith("hs_"));
+  const A = FICHES.filter(f => !f.id.startsWith("hs_") && inA(f.id)), B = FICHES.filter(f => !f.id.startsWith("hs_") && !inA(f.id) && inB(f.id));
+  $("lib").innerHTML = `<p class="muted small" style="margin:0">Chaque fiche montre les positions en dessin, le réglage de la machine, le mouvement pas à pas, le tempo et les erreurs à éviter.</p>
+    ${grp("Handstand (les deux séances)", hs)}${grp("Séance A", A)}${grp("Séance B", B)}${grp("À réessayer un jour", FICHES.filter(f => f.essai))}`;
 }
 
 /* ---------- Progrès ---------- */
@@ -283,7 +403,7 @@ function renderProgres(){
       if (ex.mode === "assist"){ const g = (a.c ?? 0) - (b.c ?? 0); gain = g > 0 ? `${fmt(g)} kg d'assistance en moins` : "pas encore de changement"; }
       else if (ex.mode === "charge"){ const g = (b.c ?? 0) - (a.c ?? 0); gain = g > 0 ? `+${fmt(g)} kg` : g < 0 ? `${fmt(g)} kg` : "pas encore de changement"; }
       else { const g = b.r - a.r; gain = g > 0 ? `+${g} rep${g > 1 ? "s" : ""}` : "pas encore de changement"; }
-      const val = p => ex.mode === "reps" ? `${p.r} reps` : `${loadTxt(ex, p.c ?? 0)} × ${p.r}`;
+      const val = p => bw(ex) ? `${p.r}${ex.mode === "time" ? " s" : " reps"}` : `${loadTxt(ex, p.c ?? 0)} × ${p.r}`;
       return `<button type="button" class="crow" data-sel="${ex.id}" aria-pressed="${ex.id === sel}"><b>${esc(ex.nom.replace(/,.*$/, ""))}</b><span class="num">${val(a)} → ${val(b)}</span><span class="gain ${/^\+|moins/.test(gain) ? "pos" : ""}">${gain}</span></button>`;
     }).join("")}</div><div id="cchart"></div>`;
   const r = rows.find(x => x.ex.id === sel) || rows[0], ex = r.ex;
@@ -321,7 +441,7 @@ function renderHist(){
   $("hist").innerHTML = [...sessions].reverse().map(s => {
     const items = Object.entries(s.ex || {}).filter(([id]) => byId[id]).map(([id, e]) => {
       const ex = byId[id], ok = e.sets.filter(v => v === 1).length, part = e.sets.filter(v => v === 2).length;
-      return `<li><b>${esc(ex.nom.replace(/,.*$/, ""))}</b> · ${ex.mode === "reps" ? "" : loadTxt(ex, e.charge ?? 0) + " · "}<span class="num">${ok}/${ex.sets} séries de ${e.reps}${part ? `, ${part} incomplète${part > 1 ? "s" : ""}` : ""}</span></li>`;
+      return `<li><b>${esc(ex.nom.replace(/,.*$/, ""))}</b> · ${bw(ex) ? "" : loadTxt(ex, e.charge ?? 0) + " · "}<span class="num">${ok}/${ex.sets} séries de ${e.reps}${part ? `, ${part} incomplète${part > 1 ? "s" : ""}` : ""}</span></li>`;
     }).join("");
     return `<div class="card"><div class="row" style="justify-content:space-between"><h3>Séance ${esc(s.type)} · ${dateFr(s.date)}</h3><button class="ghost" data-del="${esc(s.id)}" type="button">Supprimer</button></div>
       <ul>${s.cardio ? `<li>Cardio : ${esc(s.cardio)}${s.vitesse ? `, ${fmt(s.vitesse)} km/h` : ""}</li>` : ""}${items}</ul></div>`;
