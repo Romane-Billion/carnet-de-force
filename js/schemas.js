@@ -168,6 +168,15 @@ const abduc = [
     + titre("ARRIVÉE : ouvre fort", "tiens 1 s, referme en 2-3 s"), "Abducteurs, arrivée : jambes ouvertes")
 ];
 
+/* ---------- Adducteurs (vue de face) : coussins à l'intérieur des genoux ---------- */
+const adduc = [
+  svg(floor + siegeAb + rect(110, 132, 10, 26) + rect(180, 132, 10, 26) + front(150, 76, 126, [[118, 104], [112, 128], [182, 104], [188, 128]], [[104, 144], [112, 200], [196, 144], [188, 200]])
+    + blob(138, 140, 8, 12) + blob(162, 140, 8, 12) + titre("DÉPART : jambes ouvertes", "coussins à l'intérieur des genoux"), "Adducteurs, départ : jambes ouvertes, coussins à l'intérieur des genoux"),
+  svg(floor + siegeAb + rect(138, 132, 10, 26) + rect(152, 132, 10, 26) + front(150, 76, 126, [[118, 104], [112, 128], [182, 104], [188, 128]], [[132, 144], [130, 200], [168, 144], [170, 200]])
+    + blob(138, 140, 8, 12) + blob(162, 140, 8, 12) + arrow(70, 186, 108, 186) + arrow(230, 186, 192, 186)
+    + titre("ARRIVÉE : serre fort", "tiens 1 s, rouvre en 2-3 s"), "Adducteurs, arrivée : jambes fermées")
+];
+
 /* ---------- Tirage vertical ---------- */
 const machineTir = `${seg([150, 6], [150, 36], 2, C.eq)}${rect(100, 156, 70, 12)}${rect(166, 132, 30, 12)}${seg([132, 168], [132, 206], 6, C.eq)}`;
 const tirage = [
@@ -225,10 +234,10 @@ const hs_decol = [
     + arrow(202, 50, 192, 50) + titre("2. Décolle les pieds", "et cherche l'équilibre") + txt(14, 120, "appuie avec le", {col:C.eq}) + txt(14, 136, "bout des doigts", {col:C.eq}) + txt(14, 152, "pour ne pas tomber", {col:C.eq}), "Décoller du mur, étape 2 : pieds décollés, en équilibre")
 ];
 
-export const SCHEMAS = {ext45, negatives, releves, presse, pressepieds, mollets, hipthrust, traction, dc, abduc, tirage, dips, militaire, pecdeck, hs_mur, hs_taps, hs_decol};
+export const SCHEMAS = {ext45, negatives, releves, presse, pressepieds, mollets, hipthrust, traction, dc, abduc, adduc, tirage, dips, militaire, pecdeck, hs_mur, hs_taps, hs_decol};
 export const LEGENDES = {
   ext45:["Départ", "Arrivée"], negatives:["Départ", "Arrivée"], releves:["Départ", "Arrivée"],
   presse:["Départ", "Arrivée"], pressepieds:["Pieds : à faire", "Pieds : à éviter"], hipthrust:["Départ", "Arrivée"],
-  mollets:["Départ", "Arrivée"], traction:["Départ", "Arrivée"], dc:["Départ", "Arrivée"], abduc:["Départ", "Arrivée"], tirage:["Départ", "Arrivée"],
+  mollets:["Départ", "Arrivée"], traction:["Départ", "Arrivée"], dc:["Départ", "Arrivée"], abduc:["Départ", "Arrivée"], adduc:["Départ", "Arrivée"], tirage:["Départ", "Arrivée"],
   dips:["Départ", "Arrivée"], militaire:["Départ", "Arrivée"], pecdeck:["Départ", "Arrivée"], hs_mur:["Étape 1", "Étape 2"], hs_taps:["Étape 1", "Étape 2"], hs_decol:["Étape 1", "Étape 2"]
 };
