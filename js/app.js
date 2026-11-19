@@ -1,4 +1,4 @@
-import { EX, ALL, byId, CARDIO, PAUSE_EXO, ALT, FICHES } from "./data.js";
+import { EX, ALL, byId, TYPES, SANS_CARDIO, CARDIO, PAUSE_EXO, DUO_REPOS, ALT, FICHES } from "./data.js";
 import { SCHEMAS, LEGENDES } from "./schemas.js";
 import { initRepas, refreshRepas, REPAS_KEYS } from "./repas.js";
 
@@ -33,6 +33,9 @@ const loadTxt = (ex, c) => ex.mode === "assist" ? `-${fmt(c)} kg` : ex.mode === 
 const bw = ex => ex.mode === "reps" || ex.mode === "time"; // poids du corps
 const altOf = ex => ALT[ex.fiche] || null;
 const eff = (ex, st) => st?.alt && altOf(ex) ? {...ex, ...altOf(ex), id: ex.id} : ex; // exercice réellement fait (remplacement si machine prise)
+const nextType = t => TYPES[(TYPES.indexOf(t) + 1) % TYPES.length] || "A";
+const cardioOf = t => !SANS_CARDIO.includes(t);
+const partnerOf = ex => ex.duo ? (EX[cur.type] || []).find(x => x.duo === ex.duo && x.id !== ex.id) || null : null; // même machine, en alternance
 const keyOf = ex => (ex.lie && ex.lie !== "presse") ? ex.lie : ex.id; // presse B garde sa propre progression (12 reps)
 function lastOf(key){
   for (let i = sessions.length - 1; i >= 0; i--){
@@ -78,16 +81,21 @@ function loadCurrent(){
     return c;
   }
   const last = sessions[sessions.length - 1];
-  return newSession(last ? (last.type === "A" ? "B" : "A") : "A");
+  return newSession(last ? nextType(last.type) : "A");
 }
 const saveCurrent = () => store.set(K.encours, cur);
 const started = () => cur.cardio || Object.values(cur.ex).some(e => e.sets.some(v => v));
 
 function duree(type){
   const list = EX[type].filter(e => !e.optionnel && !e.bloc);
-  let s = CARDIO.min * 60 + (EX[type].some(e => e.bloc) ? 600 : 0);
-  for (const e of list) s += e.sets * 45 + (e.sets - 1) * e.repos + 60;
-  s += (list.length - 1) * PAUSE_EXO;
+  let s = (cardioOf(type) ? CARDIO.min * 60 : 0) + (EX[type].some(e => e.bloc) ? 600 : 0);
+  const postes = new Set();
+  for (const e of list){
+    postes.add(e.duo || e.id);
+    if (e.duo){ const pair = list.filter(x => x.duo === e.duo); if (pair[0] !== e) continue; const n = pair.reduce((t, x) => t + x.sets, 0); s += n * 45 + (n - 1) * DUO_REPOS + 60; }
+    else s += e.sets * 45 + (e.sets - 1) * e.repos + 60;
+  }
+  s += (postes.size - 1) * PAUSE_EXO;
   const m = Math.round(s / 60 / 5) * 5;
   return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`;
 }
@@ -96,10 +104,14 @@ function renderSeance(){
   const list = EX[cur.type], main = list.filter(e => !e.optionnel), opt = list.filter(e => e.optionnel);
   $("jour").innerHTML = `
     <div class="eyebrow">${dateFr(cur.date, {weekday:"long", day:"numeric", month:"long"})}</div>
-    <h1>Séance ${cur.type}</h1>
+    <h1>Séance ${cur.type}${cardioOf(cur.type) ? "" : " · midi"}</h1>
     <p class="big">${main.length} exercices${opt.length ? ` + ${opt.length} optionnel` : ""} · environ ${duree(cur.type)}</p>
     <p class="muted small">Touche le rond d'une série quand tu l'as finie : un grand compte à rebours de pause s'affiche en bas de l'écran et sonne à la fin. Touche le rond une deuxième fois s'il te manque des reps.</p>
-    <button type="button" class="link" id="switch">Faire plutôt la séance ${cur.type === "A" ? "B" : "A"}</button>`;
+    ${cardioOf(cur.type) ? "" : `<p class="muted small" style="margin:0">Séance calme, sans cardio : pauses tranquilles pour ne pas transpirer.</p>`}
+    <div class="choices types" id="types">${TYPES.map(t => `<button type="button" class="choice" data-type="${t}" aria-pressed="${t === cur.type}">${t}${cardioOf(t) ? "" : " · midi"}</button>`).join("")}</div>
+    <p class="small muted" id="typeConfirm" hidden style="margin:0">Tu as déjà commencé : touche encore pour changer.</p>`;
+  $("cardio").hidden = !cardioOf(cur.type);
+  const n0 = cardioOf(cur.type) ? 2 : 1;
   const c = cur.cardio;
   $("cardio").innerHTML = `<div class="ex-head"><h3>1. Cardio · ${CARDIO.min} min</h3>${c ? `<span class="okmark">✓ Fait</span>` : ""}</div>
     <div class="banner"><b>Marche inclinée : pente maximale, ${fmt(vitesse().v)} km/h,</b> sans te tenir aux barres.
@@ -116,14 +128,15 @@ function renderSeance(){
     const prev = list[i - 1];
     const head = ex.bloc && prev?.bloc !== ex.bloc ? `<h2 class="bloc-title">${esc(ex.bloc)}</h2><p class="muted small" style="margin:0">Juste après le cardio, poignets échauffés. Pauses d'une minute.</p>`
       : !ex.bloc && prev?.bloc ? `<h2 class="bloc-title">Musculation</h2>` : "";
-    return `${head}<div class="card ex ${doneAll ? "done" : ""}" id="ex-${ex.id}">
-      <div class="ex-head"><h3>${i + 2}. ${esc(ex.nom)}</h3>${ex.nouveau ? `<span class="tag">Nouveau</span>` : ""}${ex.optionnel ? `<span class="tag soft">Optionnel</span>` : ""}</div>
+    const duo = partnerOf(ex), duoPrem = duo && list.indexOf(duo) > i;
+    return `${head}${duoPrem ? `<p class="duo-title">🔁 Même machine : alterne 1 série de chaque</p>` : ""}<div class="card ex ${doneAll ? "done" : ""}${duo ? " duo" : ""}" id="ex-${ex.id}">
+      <div class="ex-head"><h3>${i + n0}. ${esc(ex.nom)}</h3>${ex.nouveau ? `<span class="tag">Nouveau</span>` : ""}${ex.optionnel ? `<span class="tag soft">Optionnel</span>` : ""}</div>
       ${st.alt ? `<div class="banner alt"><b>Machine prise, à la place : ${esc(a.nom)}</b><br>${esc(a.comment)}${a.charge != null ? `<br><span class="small">Charge conseillée pour commencer : ${loadTxt(fx, a.charge)}, à ajuster.</span>` : ""}</div>` : ""}
       <div class="target num">${ex.sets} × ${st.reps}${ex.mode === "time" ? " s" : " reps"}${load}</div>
       ${!st.alt && p.msg && p.msg.startsWith("Progrès") ? `<div class="tip up">${esc(p.msg)}</div>` : ""}
       ${st.alt ? "" : `<p class="muted small" style="margin:0">${esc(ex.tip)}</p>`}
       <div class="sets">${st.sets.map((v, k) => `<button type="button" class="set s${v}" data-set="${ex.id}:${k}" aria-label="Série ${k + 1} ${v === 1 ? "faite" : v === 2 ? "pas toutes les reps" : "à faire"}">${v === 1 ? "✓" : v === 2 ? "≈" : k + 1}</button>`).join("")}</div>
-      <div class="restinfo"><span>⏱ Pause : <b>${mmss(ex.repos)}</b> entre les séries, <b>${mmss(ex.bloc ? ex.repos : PAUSE_EXO)}</b> avant l'exercice suivant</span><button type="button" class="ghost" data-pause="${ex.id}">Lancer la pause</button></div>
+      <div class="restinfo"><span>${duo ? `⏱ Pause : <b>${mmss(DUO_REPOS)}</b>, puis une série de ${esc(duo.nom.replace(/,.*$/, "").toLowerCase())}` : `⏱ Pause : <b>${mmss(ex.repos)}</b> entre les séries, <b>${mmss(ex.bloc ? ex.repos : PAUSE_EXO)}</b> avant l'exercice suivant`}</span><button type="button" class="ghost" data-pause="${ex.id}">Lancer la pause</button></div>
       <div class="row">
         ${fiche && !st.alt ? `<button type="button" class="ghost" data-fiche="${fiche.id}">Comment faire ?</button>` : ""}
         ${a ? `<button type="button" class="ghost" data-alt="${ex.id}">${st.alt ? "Revenir à l'exercice normal" : "Machine prise ?"}</button>` : ""}
@@ -139,9 +152,10 @@ function renderSeance(){
 
 document.addEventListener("click", e => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.id === "switch"){
-    if (started() && t.dataset.armed !== "1"){ t.dataset.armed = "1"; t.textContent = "Tu as déjà commencé. Touche encore pour changer."; return; }
-    cur = newSession(cur.type === "A" ? "B" : "A"); saveCurrent(); renderSeance(); return;
+  if (t.dataset.type){
+    if (t.dataset.type === cur.type) return;
+    if (started() && t.dataset.armed !== "1"){ t.dataset.armed = "1"; $("typeConfirm").hidden = false; return; }
+    cur = newSession(t.dataset.type); saveCurrent(); renderSeance(); return;
   }
   if (t.id === "marchePlus"){ marche.push({date: today(), v: Math.round((vitesse().v + .1) * 10) / 10}); store.set(K.marche, marche); renderSeance(); renderProgres(); toast(`Nouvelle vitesse : ${fmt(vitesse().v)} km/h. Bravo !`); return; }
   if (t.dataset.cardio){ cur.cardio = cur.cardio === t.dataset.cardio ? null : t.dataset.cardio; saveCurrent(); renderSeance(); keepAwake(); return; }
@@ -150,8 +164,12 @@ document.addEventListener("click", e => {
     st.sets[k] = (st.sets[k] + 1) % 3; saveCurrent();
     if (st.sets[k] === 1){
       keepAwake();
-      const list = EX[cur.type], idx = list.findIndex(x => x.id === id);
-      if (st.sets.every(v => v)){
+      const list = EX[cur.type], idx = list.findIndex(x => x.id === id), duo = partnerOf(ex);
+      const fait = x => cur.ex[x.id].sets.filter(v => v).length, reste = x => cur.ex[x.id].sets.some(v => !v);
+      if (duo && reste(duo)){ // alternance sur la même machine
+        const suiv = !reste(ex) || fait(duo) <= fait(ex) ? duo : ex;
+        startRest(DUO_REPOS, `Pause, ensuite : ${suiv.nom.replace(/,.*$/, "")}, série ${fait(suiv) + 1}`);
+      } else if (st.sets.every(v => v)){
         const next = list.slice(idx + 1).find(x => !cur.ex[x.id].sets.every(v => v));
         if (next) startRest(next.bloc && next.bloc === ex.bloc ? ex.repos : PAUSE_EXO, `Pause, ensuite : ${next.nom}`);
         else stopRest();
@@ -159,7 +177,7 @@ document.addEventListener("click", e => {
     }
     renderSeance(); return;
   }
-  if (t.dataset.pause){ const ex = byId[t.dataset.pause]; const st = cur.ex[ex.id]; startRest(st.sets.every(v => v) ? PAUSE_EXO : ex.repos, "Pause"); return; }
+  if (t.dataset.pause){ const ex = byId[t.dataset.pause]; const st = cur.ex[ex.id]; const duo = partnerOf(ex); startRest(duo && cur.ex[duo.id].sets.some(v => !v) ? DUO_REPOS : st.sets.every(v => v) ? PAUSE_EXO : ex.repos, "Pause"); return; }
   if (t.dataset.alt){
     const ex = byId[t.dataset.alt], st = cur.ex[ex.id], a = altOf(ex);
     if (!st.alt){ st.normal = {charge: st.charge, reps: st.reps}; st.alt = true; st.charge = a.charge ?? null; st.reps = a.reps ?? st.reps; }
@@ -186,7 +204,7 @@ $("finish").addEventListener("click", () => {
   sessions = sortS([...sessions, doc]);
   if (!store.set(K.seances, sessions)){ sessions = sessions.filter(s => s !== doc); toast("Le téléphone n'a pas pu enregistrer. Exporte une sauvegarde et réessaie."); return; }
   stopRest();
-  const prochaine = newSession(cur.type === "A" ? "B" : "A");
+  const prochaine = newSession(nextType(cur.type));
   const ups = EX[cur.type].filter(e => ex[e.id]).map(e => ({e, p: plan(e)})).filter(x => x.p.msg.startsWith("Progrès"));
   const fini = cur;
   cur = prochaine; saveCurrent(); renderAll(); window.scrollTo({top: 0});
@@ -222,7 +240,7 @@ function celebrer(fini, doc, ups){
   const t0 = tractions[0], t1 = tractions[tractions.length - 1];
   $("celebBody").innerHTML = `<div class="celeb-top"><div class="big-emoji" aria-hidden="true">🎉</div><h2>Séance ${fini.type} terminée !</h2>
       <p class="muted" style="margin:0">${mins > 5 && mins < 300 ? `${mins} min · ` : ""}${fini.cardio ? "cardio fait · " : ""}bravo Romane</p></div>
-    <div class="stats"><div class="stat"><span class="eyebrow">Cette semaine</span><b class="num">${semaine} / 2</b></div>
+    <div class="stats"><div class="stat"><span class="eyebrow">Cette semaine</span><b class="num">${semaine} / 3</b></div>
       <div class="stat"><span class="eyebrow">Au total</span><b class="num">${sessions.length}</b><span class="muted small">séance${sessions.length > 1 ? "s" : ""}</span></div>
       <div class="stat"><span class="eyebrow">Tractions strictes</span><b class="num">${t1 ? t1.n : "1-2"}</b><span class="muted small">${t0 && t1 && t1.n > t0.n ? `+${t1.n - t0.n} depuis le début` : "au dernier test"}</span></div></div>
     <h3>Ta progression</h3><ul class="prog">${lignes || "<li>Cardio fait.</li>"}</ul>
@@ -251,7 +269,8 @@ function confettis(){
 /* ---------- Minuteur de pause ---------- */
 let restT = null, audio = null, restEnd = 0, restDur = 0, wake = null;
 // Son de fin de pause : un fichier audio fabriqué ici (3 bips), joué par un élément <audio>.
-// Sur iPhone, il passe même en mode silencieux (contrairement aux bips Web Audio), tant que l'appli est ouverte.
+// Session audio « ambient » : les bips se mélangent à la musique ou aux podcasts au lieu de les couper (Romane, 19/11).
+// Contrepartie : en mode silencieux, l'iPhone ne sonne pas (il reste le flash vert, le « Go ! » et le minuteur iPhone).
 function wav(freqs, amp = 1){
   const sr = 22050, parts = freqs.map(([f, d, gap]) => ({f, n: Math.round(sr * d), g: Math.round(sr * gap)}));
   const n = parts.reduce((s, p) => s + p.n + p.g, 0), buf = new DataView(new ArrayBuffer(44 + n * 2));
@@ -275,7 +294,7 @@ function setVolume(v){
 setVolume(volume);
 let audioOk = false;
 function unlockAudio(){
-  try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch {}
+  try { if (navigator.audioSession) navigator.audioSession.type = "ambient"; } catch {}
   if (audioOk) return;
   for (const s of [SON_FIN, SON_TIC]){ s.muted = true; s.play().then(() => { s.pause(); s.currentTime = 0; s.muted = false; audioOk = true; }).catch(() => { s.muted = false; }); }
 }
@@ -369,12 +388,12 @@ function openFiche(id){
 }
 function renderFiches(){
   const card = f => `<div class="card stack"><div class="ex-head"><h2>${esc(f.titre)}</h2>${f.nouveau ? `<span class="tag">Nouveau</span>` : ""}${f.essai ? `<span class="tag soft">Pas dans tes séances</span>` : ""}</div>${ficheHTML(f, false)}<button type="button" class="primary" data-fiche="${f.id}">Voir la fiche complète</button></div>`;
-  const inA = id => EX.A.some(e => e.fiche === id), inB = id => EX.B.some(e => e.fiche === id);
+  const inA = id => EX.A.some(e => e.fiche === id), inB = id => EX.B.some(e => e.fiche === id), inC = id => EX.C.some(e => e.fiche === id);
   const grp = (t, list) => list.length ? `<h2 class="sec">${t}</h2>${list.map(card).join("")}` : "";
   const hs = FICHES.filter(f => f.id.startsWith("hs_"));
-  const A = FICHES.filter(f => !f.id.startsWith("hs_") && inA(f.id)), B = FICHES.filter(f => !f.id.startsWith("hs_") && !inA(f.id) && inB(f.id));
+  const A = FICHES.filter(f => !f.id.startsWith("hs_") && inA(f.id)), B = FICHES.filter(f => !f.id.startsWith("hs_") && !inA(f.id) && inB(f.id)), Cm = FICHES.filter(f => !f.id.startsWith("hs_") && !inA(f.id) && !inB(f.id) && inC(f.id));
   $("lib").innerHTML = `<p class="muted small" style="margin:0">Chaque fiche montre les positions en dessin, le réglage de la machine, le mouvement pas à pas, le tempo et les erreurs à éviter.</p>
-    ${grp("Handstand (les deux séances)", hs)}${grp("Séance A", A)}${grp("Séance B", B)}${grp("À réessayer un jour", FICHES.filter(f => f.essai))}`;
+    ${grp("Handstand (les deux séances)", hs)}${grp("Séance A", A)}${grp("Séance B", B)}${grp("Séance C · midi", Cm)}${grp("À réessayer un jour", FICHES.filter(f => f.essai))}`;
 }
 
 /* ---------- Progrès ---------- */
@@ -385,7 +404,7 @@ function renderProgres(){
   const weeks = []; for (let i = 7; i >= 0; i--){ const d = new Date(wk + "T12:00:00"); d.setDate(d.getDate() - 7 * i); const k = d.toISOString().slice(0, 10); weeks.push({k, n: sessions.filter(s => monday(s.date) === k).length}); }
   const first = sessions[0];
   $("pSeances").innerHTML = `<h2>Séances</h2>
-    <div class="stats"><div class="stat"><span class="eyebrow">Cette semaine</span><b class="num">${thisWeek} / 2</b></div>
+    <div class="stats"><div class="stat"><span class="eyebrow">Cette semaine</span><b class="num">${thisWeek} / 3</b></div>
       <div class="stat"><span class="eyebrow">Au total</span><b class="num">${n}</b></div>
       <div class="stat"><span class="eyebrow">Depuis</span><b>${first ? dateFr(first.date, {day:"numeric", month:"short"}) : "–"}</b></div></div>
     <div class="weeks">${weeks.map(w => `<div class="wk"><div class="wbar"><i style="height:${Math.min(w.n, 3) / 3 * 100}%" class="${w.n >= 2 ? "ok" : ""}"></i></div><span>${dateFr(w.k, {day:"numeric", month:"numeric"})}</span><b class="num">${w.n}</b></div>`).join("")}</div>

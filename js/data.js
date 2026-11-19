@@ -1,4 +1,4 @@
-// Programme de Romane : 2 séances corps entier qui alternent (A, B, A, B…).
+// Programme de Romane (19/11/2026) : 3 séances par semaine qui tournent (A, B, C). C = le midi, sans cardio.
 // Ordre : 20 min de cardio, 10 min de handstand, puis la musculation.
 // mode : "assist" = kg d'assistance machine (on la baisse en progressant)
 //        "charge" = kg (on monte en progressant)
@@ -10,8 +10,11 @@
 // repos : pause entre deux séries (secondes). fiche : explication et dessins (FICHES plus bas, dessins dans js/schemas.js).
 // lie : même exercice qu'un autre, la progression est partagée.
 
+export const TYPES = ["A", "B", "C"];
+export const SANS_CARDIO = ["C"];
 export const CARDIO = {min: 20, choix: ["Marche inclinée et course", "Montée de marches"]};
-export const PAUSE_EXO = 150; // pause entre deux exercices
+export const PAUSE_EXO = 90; // pause entre deux exercices (le temps de changer de machine)
+export const DUO_REPOS = 60; // duo = deux exercices sur la même machine, en alternance : 1 série de chacun, 1 min entre les deux
 
 const HS = s => [
   {id:"hs_mur" + s, lie: s ? "hs_mur" : undefined, nom:"Handstand ventre au mur", bloc:"Handstand · 10 min", sets:3, min:20, max:30, mode:"time", repos:60, fiche:"hs_mur",
@@ -25,18 +28,14 @@ const HS = s => [
 export const EX = {
   A: [
     ...HS(""),
-    {id:"traction", nom:"Tractions assistées", sets:4, min:5, max:8, mode:"assist", start:13.6, step:6.8, repos:120, fiche:"traction",
+    {id:"traction", duo:"assist",  nom:"Tractions assistées", sets:4, min:5, max:8, mode:"assist", start:13.6, step:6.8, repos:120, fiche:"traction",
       tip:"Abdos serrés. Monte jusqu'au menton au-dessus de la barre, redescends jusqu'aux bras tendus, épaules basses."},
-    {id:"presse", nom:"Presse inclinée, pieds hauts et écartés", sets:4, min:10, max:10, mode:"charge", start:75, step:5, repos:120, fiche:"presse",
+    {id:"dips", duo:"assist",  nom:"Dips assistés", sets:4, min:8, max:10, mode:"assist", start:20.4, step:6.8, repos:120, fiche:"dips",
+      tip:"Même machine que les tractions : change juste la goupille (20,4 kg). Descends jusqu'à 90° aux coudes."},
+    {id:"presse", duo:"presse",  nom:"Presse inclinée, pieds hauts et écartés", sets:4, min:10, max:10, mode:"charge", start:75, step:5, repos:120, fiche:"presse",
       tip:"Pieds en haut du plateau, plus écartés que les hanches. Descends en 3 s jusqu'à 90° aux genoux, pas plus bas."},
-    {id:"mollets", nom:"Mollets à la presse", sets:3, min:15, max:15, mode:"charge", start:null, step:5, repos:60, fiche:"mollets",
-      tip:"Juste après la presse, sans changer de machine. Première fois : choisis ta charge avec « Modifier »."},
-    {id:"dc", nom:"Développé couché", sets:3, min:8, max:10, mode:"charge", start:30, step:2.5, repos:90, unite:"kg au total", fiche:"dc",
-      tip:"Poids total barre comprise. Omoplates serrées contre le banc, descente en 2-3 s."},
-    {id:"ext45", nom:"Extension au banc à 45°", sets:3, min:12, max:15, mode:"charge", start:0, step:2.5, repos:90, nouveau:true, fiche:"ext45",
-      tip:"0 kg = sans poids. Coussin sous le pli de la hanche, pieds ouverts en V, serre les fesses pour remonter."},
-    {id:"abduc", nom:"Abducteurs (jambes qui s'ouvrent)", sets:3, min:15, max:15, mode:"charge", start:50, step:7, repos:90, fiche:"abduc",
-      tip:"Dos collé. Ouvre en 1 s, tiens 1 s, referme en 2-3 s."},
+    {id:"mollets", duo:"presse",  nom:"Mollets à la presse", sets:3, min:15, max:15, mode:"charge", start:null, step:5, repos:60, fiche:"mollets",
+      tip:"En alternance avec la presse, sans changer de machine. Première fois : choisis ta charge avec « Modifier »."},
     {id:"releves", nom:"Relevé de genoux à la chaise romaine", sets:3, min:12, max:15, mode:"reps", repos:90, nouveau:true, fiche:"releves",
       tip:"Dos collé au dossier, monte les genoux vers la poitrine en enroulant le bassin."}
   ],
@@ -44,24 +43,39 @@ export const EX = {
     ...HS("B"),
     {id:"negatives", nom:"Négatives de traction", sets:3, min:3, max:5, mode:"reps", repos:120, nouveau:true, fiche:"negatives",
       tip:"Pars d'en haut (banc ou saut) et descends en comptant 5 secondes."},
+    {id:"dc", nom:"Développé couché", sets:3, min:8, max:10, mode:"charge", start:30, step:2.5, repos:90, unite:"kg au total", fiche:"dc",
+      tip:"Poids total barre comprise. Omoplates serrées contre le banc, descente en 2-3 s."},
+    {id:"presseB", duo:"presse",  nom:"Presse inclinée, pieds hauts et écartés", sets:3, min:12, max:12, mode:"charge", start:null, step:5, repos:120, lie:"presse", fiche:"presse",
+      tip:"Comme en séance A, avec plus de reps : prends environ 10 kg de moins que ta charge de la séance A."},
+    {id:"molletsB", duo:"presse",  nom:"Mollets à la presse", sets:3, min:15, max:15, mode:"charge", start:null, step:5, repos:60, lie:"mollets", fiche:"mollets",
+      tip:"En alternance avec la presse, même charge qu'en séance A."},
+    {id:"ext45B", nom:"Extension au banc à 45°", sets:3, min:12, max:15, mode:"charge", start:null, step:2.5, repos:90, nouveau:true, lie:"ext45", fiche:"ext45",
+      tip:"0 kg = sans poids. Coussin sous le pli de la hanche, pieds ouverts en V, serre les fesses pour remonter."},
+    {id:"relevesB", nom:"Relevé de genoux à la chaise romaine", sets:3, min:12, max:15, mode:"reps", repos:90, nouveau:true, lie:"releves", fiche:"releves",
+      tip:"Même exercice qu'en séance A : dos collé au dossier, genoux vers la poitrine en enroulant le bassin."}
+  ],
+  // Séance du midi (à partir du 23/11/2026) : sans cardio, au calme pour ne pas transpirer (elle retourne travailler sans douche). 1 h max sur place.
+  C: [
     {id:"tirage", nom:"Tirage vertical", sets:3, min:10, max:10, mode:"charge", start:null, step:2.5, repos:90, fiche:"tirage",
       tip:"Première fois : choisis une charge où les 10 reps sont dures mais propres. Tire la barre vers le haut de la poitrine."},
-    {id:"dips", nom:"Dips assistés", sets:4, min:8, max:10, mode:"assist", start:20.4, step:6.8, repos:120, fiche:"dips",
-      tip:"Même machine que les tractions. Descends jusqu'à 90° aux coudes."},
-    {id:"presseB", nom:"Presse inclinée, pieds hauts et écartés", sets:3, min:12, max:12, mode:"charge", start:null, step:5, repos:120, lie:"presse", fiche:"presse",
-      tip:"Comme en séance A, avec plus de reps : prends environ 10 kg de moins que ta charge de la séance A."},
-    {id:"molletsB", nom:"Mollets à la presse", sets:3, min:15, max:15, mode:"charge", start:null, step:5, repos:60, lie:"mollets", fiche:"mollets",
-      tip:"Juste après la presse, même charge qu'en séance A."},
+    {id:"abduc", duo:"abad",  nom:"Abducteurs (jambes qui s'ouvrent)", sets:3, min:15, max:15, mode:"charge", start:50, step:7, repos:90, fiche:"abduc",
+      tip:"Dos collé. Ouvre en 1 s, tiens 1 s, referme en 2-3 s."},
+    {id:"adduc", duo:"abad", nom:"Adducteurs (jambes qui se ferment)", sets:3, min:15, max:15, mode:"charge", start:35, step:7, repos:90, fiche:"adduc",
+      tip:"Même machine que les abducteurs, coussins à l'intérieur des genoux. Ferme en 1 s, tiens 1 s, rouvre en 2-3 s."},
     {id:"militaire", nom:"Développé militaire", sets:3, min:10, max:10, mode:"charge", start:10, step:2.5, repos:90, unite:"kg par côté", fiche:"militaire",
       tip:"Gaine les abdos et serre les fesses pour ne pas cambrer en poussant."},
-    {id:"ext45B", nom:"Extension au banc à 45°", sets:3, min:12, max:15, mode:"charge", start:null, step:2.5, repos:90, nouveau:true, lie:"ext45", fiche:"ext45",
-      tip:"Même exercice qu'en séance A, même charge."},
-    {id:"relevesB", nom:"Relevé de genoux à la chaise romaine", sets:3, min:12, max:15, mode:"reps", repos:90, nouveau:true, lie:"releves", fiche:"releves",
-      tip:"Même exercice qu'en séance A."},
-    {id:"pecdeck", nom:"Pec deck (si tu as le temps)", sets:2, min:12, max:12, mode:"charge", start:5, step:2.5, repos:90, unite:"kg par côté", optionnel:true, fiche:"pecdeck",
-      tip:"Optionnel. Coudes légèrement fléchis, ferme les bras devant toi sans hausser les épaules."}
+    {id:"pecdeck", nom:"Pec deck", sets:2, min:12, max:12, mode:"charge", start:5, step:2.5, repos:90, unite:"kg par côté", fiche:"pecdeck",
+      tip:"Coudes légèrement fléchis, ferme les bras devant toi sans hausser les épaules."},
+    {id:"relevesC", nom:"Relevé de genoux à la chaise romaine", sets:3, min:12, max:15, mode:"reps", repos:90, lie:"releves", fiche:"releves",
+      tip:"Même exercice qu'en séance A : dos collé au dossier, genoux vers la poitrine en enroulant le bassin."}
   ]
 };
+
+// Exercices retirés du programme le 19/11/2026 (séances trop longues). Gardés ici pour l'historique et la progression déjà notée.
+const RETIRES = [
+    {id:"ext45", nom:"Extension au banc à 45°", sets:3, min:12, max:15, mode:"charge", start:0, step:2.5, repos:90, nouveau:true, fiche:"ext45",
+      tip:"0 kg = sans poids. Coussin sous le pli de la hanche, pieds ouverts en V, serre les fesses pour remonter."}
+];
 
 // Fiches techniques (onglet Exercices et bouton « Comment faire ? »), dans l'ordre des séances.
 // reglage : comment régler la machine ; etapes : le mouvement pas à pas ; tempo ; erreurs : ce qu'il faut éviter.
@@ -186,6 +200,18 @@ export const FICHES = [
     tempo:"1 s pour ouvrir, 1 s tenu, 2 à 3 s pour refermer.",
     erreurs:["Laisser les poids claquer en refermant.", "Se décoller du dossier pour tirer avec le dos."],
     plus:""},
+  {id:"adduc", titre:"Adducteurs (jambes qui se ferment)", schemas:["adduc"],
+    quoi:"Souvent la même machine que les abducteurs : on tourne les coussins pour qu'ils soient à l'intérieur des genoux, et tu fermes les jambes.",
+    travaille:"L'intérieur des cuisses.",
+    reglage:"Mets les coussins à l'intérieur des genoux. Règle l'écartement de départ pour sentir un léger étirement à l'intérieur des cuisses, sans douleur. Paliers de 7 kg, comme les abducteurs.",
+    etapes:[
+      "Assise au fond du siège, dos collé au dossier, mains sur les poignées.",
+      "Serre les jambes jusqu'à ce que les coussins se touchent presque.",
+      "Tiens 1 s jambes fermées.",
+      "Rouvre lentement, sans laisser les poids se toucher."],
+    tempo:"1 s pour fermer, 1 s tenu, 2 à 3 s pour rouvrir.",
+    erreurs:["Ouvrir trop grand au départ : tu tires sur l'aine.", "Laisser les poids claquer en rouvrant."],
+    plus:"En alternance avec les abducteurs : 1 série d'abducteurs, tu changes les coussins de côté, 1 série d'adducteurs."},
   {id:"releves", titre:"Relevé de genoux à la chaise romaine", schemas:["releves"], nouveau:true,
     quoi:"La chaise romaine est la grande station avec un dossier vertical et deux appuis pour les avant-bras. Tu es suspendue sur tes avant-bras, dos contre le dossier, et tu montes les genoux.",
     travaille:"Les abdominaux, surtout le bas du ventre.",
@@ -261,8 +287,8 @@ export const FICHES = [
     plus:""}
 ];
 
-export const ALL = [...EX.A, ...EX.B];
-export const byId = Object.fromEntries(ALL.map(e => [e.id, e]));
+export const ALL = [...EX.A, ...EX.B, ...EX.C];
+export const byId = Object.fromEntries([...ALL, ...RETIRES].map(e => [e.id, e]));
 
 // Si la machine est prise : exercice de remplacement (validé par Romane le 16/11/2026).
 // Les séances faites avec le remplacement ne comptent pas dans la progression de l'exercice normal.
@@ -286,6 +312,8 @@ export const ALT = {
     comment:"Allongée, bras au-dessus de la poitrine, coudes légèrement fléchis. Ouvre lentement les bras sur les côtés jusqu'à sentir l'étirement, puis referme comme pour enlacer un arbre."},
   abduc: {nom:"Abduction couchée sur le côté", mode:"reps", reps:20, unite:"par jambe",
     comment:"Allongée sur le côté, jambe du dessous pliée. Monte la jambe du dessus tendue, pied légèrement tourné vers le bas, sans basculer le bassin en arrière. 3 × 20 de chaque côté."},
+  adduc: {nom:"Adduction couchée sur le côté", mode:"reps", reps:15, unite:"par jambe",
+    comment:"Allongée sur le côté, pied de la jambe du dessus posé devant ta jambe du dessous. Monte la jambe du dessous tendue de quelques centimètres, tiens 1 s, redescends lentement. 3 × 15 de chaque côté."},
   releves: {nom:"Relevé de jambes allongée au sol", mode:"reps", reps:12,
     comment:"Sur le dos, mains sous les fesses, bas du dos plaqué au sol. Monte les jambes jusqu'à la verticale, redescends lentement sans toucher le sol."}
 };
