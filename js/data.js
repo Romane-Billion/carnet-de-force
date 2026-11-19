@@ -43,8 +43,6 @@ export const EX = {
     ...HS("B"),
     {id:"negatives", nom:"Négatives de traction", sets:3, min:3, max:5, mode:"reps", repos:120, nouveau:true, fiche:"negatives",
       tip:"Pars d'en haut (banc ou saut) et descends en comptant 5 secondes."},
-    {id:"tirage", nom:"Tirage vertical", sets:3, min:10, max:10, mode:"charge", start:null, step:2.5, repos:90, fiche:"tirage",
-      tip:"Première fois : choisis une charge où les 10 reps sont dures mais propres. Tire la barre vers le haut de la poitrine."},
     {id:"dc", nom:"Développé couché", sets:3, min:8, max:10, mode:"charge", start:30, step:2.5, repos:90, unite:"kg au total", fiche:"dc",
       tip:"Poids total barre comprise. Omoplates serrées contre le banc, descente en 2-3 s."},
     {id:"presseB", duo:"presse",  nom:"Presse inclinée, pieds hauts et écartés", sets:3, min:12, max:12, mode:"charge", start:null, step:5, repos:120, lie:"presse", fiche:"presse",
@@ -52,10 +50,14 @@ export const EX = {
     {id:"molletsB", duo:"presse",  nom:"Mollets à la presse", sets:3, min:15, max:15, mode:"charge", start:null, step:5, repos:60, lie:"mollets", fiche:"mollets",
       tip:"En alternance avec la presse, même charge qu'en séance A."},
     {id:"ext45B", nom:"Extension au banc à 45°", sets:3, min:12, max:15, mode:"charge", start:null, step:2.5, repos:90, nouveau:true, lie:"ext45", fiche:"ext45",
-      tip:"0 kg = sans poids. Coussin sous le pli de la hanche, pieds ouverts en V, serre les fesses pour remonter."}
+      tip:"0 kg = sans poids. Coussin sous le pli de la hanche, pieds ouverts en V, serre les fesses pour remonter."},
+    {id:"relevesB", nom:"Relevé de genoux à la chaise romaine", sets:3, min:12, max:15, mode:"reps", repos:90, nouveau:true, lie:"releves", fiche:"releves",
+      tip:"Même exercice qu'en séance A : dos collé au dossier, genoux vers la poitrine en enroulant le bassin."}
   ],
   // Séance du midi (à partir du 23/11/2026) : sans cardio, au calme pour ne pas transpirer (elle retourne travailler sans douche). 1 h max sur place.
   C: [
+    {id:"tirage", nom:"Tirage vertical", sets:3, min:10, max:10, mode:"charge", start:null, step:2.5, repos:90, fiche:"tirage",
+      tip:"Première fois : choisis une charge où les 10 reps sont dures mais propres. Tire la barre vers le haut de la poitrine."},
     {id:"abduc", duo:"abad",  nom:"Abducteurs (jambes qui s'ouvrent)", sets:3, min:15, max:15, mode:"charge", start:50, step:7, repos:90, fiche:"abduc",
       tip:"Dos collé. Ouvre en 1 s, tiens 1 s, referme en 2-3 s."},
     {id:"adduc", duo:"abad", nom:"Adducteurs (jambes qui se ferment)", sets:3, min:15, max:15, mode:"charge", start:35, step:7, repos:90, fiche:"adduc",
@@ -72,9 +74,7 @@ export const EX = {
 // Exercices retirés du programme le 19/11/2026 (séances trop longues). Gardés ici pour l'historique et la progression déjà notée.
 const RETIRES = [
     {id:"ext45", nom:"Extension au banc à 45°", sets:3, min:12, max:15, mode:"charge", start:0, step:2.5, repos:90, nouveau:true, fiche:"ext45",
-      tip:"0 kg = sans poids. Coussin sous le pli de la hanche, pieds ouverts en V, serre les fesses pour remonter."},
-    {id:"relevesB", nom:"Relevé de genoux à la chaise romaine", sets:3, min:12, max:15, mode:"reps", repos:90, nouveau:true, lie:"releves", fiche:"releves",
-      tip:"Même exercice qu'en séance A : dos collé au dossier, genoux vers la poitrine en enroulant le bassin."}
+      tip:"0 kg = sans poids. Coussin sous le pli de la hanche, pieds ouverts en V, serre les fesses pour remonter."}
 ];
 
 // Fiches techniques (onglet Exercices et bouton « Comment faire ? »), dans l'ordre des séances.
