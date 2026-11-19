@@ -86,6 +86,7 @@ function loadCurrent(){
 const saveCurrent = () => store.set(K.encours, cur);
 const started = () => cur.cardio || Object.values(cur.ex).some(e => e.sets.some(v => v));
 
+function postes(type){ return new Set(EX[type].filter(e => !e.optionnel).map(e => e.bloc || e.duo || e.id)).size; }
 function duree(type){
   const list = EX[type].filter(e => !e.optionnel && !e.bloc);
   let s = (cardioOf(type) ? CARDIO.min * 60 : 0) + (EX[type].some(e => e.bloc) ? 600 : 0);
@@ -105,7 +106,8 @@ function renderSeance(){
   $("jour").innerHTML = `
     <div class="eyebrow">${dateFr(cur.date, {weekday:"long", day:"numeric", month:"long"})}</div>
     <h1>Séance ${cur.type}${cardioOf(cur.type) ? "" : " · midi"}</h1>
-    <p class="big">${main.length} exercices${opt.length ? ` + ${opt.length} optionnel` : ""} · environ ${duree(cur.type)}</p>
+    <p class="big">${postes(cur.type)} postes · environ ${duree(cur.type)}</p>
+    <p class="muted small" style="margin:0">Un poste = une machine (ou le bloc handstand). Sur certaines machines tu alternes deux exercices.</p>
     <p class="muted small">Touche le rond d'une série quand tu l'as finie : un grand compte à rebours de pause s'affiche en bas de l'écran et sonne à la fin. Touche le rond une deuxième fois s'il te manque des reps.</p>
     ${cardioOf(cur.type) ? "" : `<p class="muted small" style="margin:0">Séance calme, sans cardio : pauses tranquilles pour ne pas transpirer.</p>`}
     <div class="choices types" id="types">${TYPES.map(t => `<button type="button" class="choice" data-type="${t}" aria-pressed="${t === cur.type}">${t}${cardioOf(t) ? "" : " · midi"}</button>`).join("")}</div>
