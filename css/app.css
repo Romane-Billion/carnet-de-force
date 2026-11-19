@@ -270,3 +270,4 @@ body.flash::after{content:"";position:fixed;inset:0;background:var(--good);opaci
 .volbox{display:flex;flex-direction:column;gap:6px}.choices.vol{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.choices.vol .choice{padding:8px 4px;font-size:.85rem;min-height:0}
 .duo-title{margin:10px 0 -4px;font-weight:700;font-size:.95rem;color:var(--accent)}
 .ex.card.duo{border-left:4px solid var(--accent)}
+#types{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}

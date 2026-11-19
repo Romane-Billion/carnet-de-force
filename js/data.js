@@ -1,4 +1,4 @@
-// Programme de Romane : 2 séances corps entier qui alternent (A, B, A, B…).
+// Programme de Romane (19/11/2026) : 3 séances par semaine qui tournent (A, B, C). C = le midi, sans cardio.
 // Ordre : 20 min de cardio, 10 min de handstand, puis la musculation.
 // mode : "assist" = kg d'assistance machine (on la baisse en progressant)
 //        "charge" = kg (on monte en progressant)
@@ -10,6 +10,8 @@
 // repos : pause entre deux séries (secondes). fiche : explication et dessins (FICHES plus bas, dessins dans js/schemas.js).
 // lie : même exercice qu'un autre, la progression est partagée.
 
+export const TYPES = ["A", "B", "C"];
+export const SANS_CARDIO = ["C"];
 export const CARDIO = {min: 20, choix: ["Marche inclinée et course", "Montée de marches"]};
 export const PAUSE_EXO = 90; // pause entre deux exercices (le temps de changer de machine)
 export const DUO_REPOS = 60; // duo = deux exercices sur la même machine, en alternance : 1 série de chacun, 1 min entre les deux
@@ -34,10 +36,6 @@ export const EX = {
       tip:"Pieds en haut du plateau, plus écartés que les hanches. Descends en 3 s jusqu'à 90° aux genoux, pas plus bas."},
     {id:"mollets", duo:"presse",  nom:"Mollets à la presse", sets:3, min:15, max:15, mode:"charge", start:null, step:5, repos:60, fiche:"mollets",
       tip:"En alternance avec la presse, sans changer de machine. Première fois : choisis ta charge avec « Modifier »."},
-    {id:"abduc", duo:"abad",  nom:"Abducteurs (jambes qui s'ouvrent)", sets:3, min:15, max:15, mode:"charge", start:50, step:7, repos:90, fiche:"abduc",
-      tip:"Dos collé. Ouvre en 1 s, tiens 1 s, referme en 2-3 s."},
-    {id:"adduc", duo:"abad", nom:"Adducteurs (jambes qui se ferment)", sets:3, min:15, max:15, mode:"charge", start:35, step:7, repos:90, fiche:"adduc",
-      tip:"Même machine que les abducteurs, coussins à l'intérieur des genoux. Ferme en 1 s, tiens 1 s, rouvre en 2-3 s."},
     {id:"releves", nom:"Relevé de genoux à la chaise romaine", sets:3, min:12, max:15, mode:"reps", repos:90, nouveau:true, fiche:"releves",
       tip:"Dos collé au dossier, monte les genoux vers la poitrine en enroulant le bassin."}
   ],
@@ -54,8 +52,19 @@ export const EX = {
     {id:"molletsB", duo:"presse",  nom:"Mollets à la presse", sets:3, min:15, max:15, mode:"charge", start:null, step:5, repos:60, lie:"mollets", fiche:"mollets",
       tip:"En alternance avec la presse, même charge qu'en séance A."},
     {id:"ext45B", nom:"Extension au banc à 45°", sets:3, min:12, max:15, mode:"charge", start:null, step:2.5, repos:90, nouveau:true, lie:"ext45", fiche:"ext45",
-      tip:"0 kg = sans poids. Coussin sous le pli de la hanche, pieds ouverts en V, serre les fesses pour remonter."},
-    {id:"relevesB", nom:"Relevé de genoux à la chaise romaine", sets:3, min:12, max:15, mode:"reps", repos:90, nouveau:true, lie:"releves", fiche:"releves",
+      tip:"0 kg = sans poids. Coussin sous le pli de la hanche, pieds ouverts en V, serre les fesses pour remonter."}
+  ],
+  // Séance du midi (à partir du 23/11/2026) : sans cardio, au calme pour ne pas transpirer (elle retourne travailler sans douche). 1 h max sur place.
+  C: [
+    {id:"abduc", duo:"abad",  nom:"Abducteurs (jambes qui s'ouvrent)", sets:3, min:15, max:15, mode:"charge", start:50, step:7, repos:90, fiche:"abduc",
+      tip:"Dos collé. Ouvre en 1 s, tiens 1 s, referme en 2-3 s."},
+    {id:"adduc", duo:"abad", nom:"Adducteurs (jambes qui se ferment)", sets:3, min:15, max:15, mode:"charge", start:35, step:7, repos:90, fiche:"adduc",
+      tip:"Même machine que les abducteurs, coussins à l'intérieur des genoux. Ferme en 1 s, tiens 1 s, rouvre en 2-3 s."},
+    {id:"militaire", nom:"Développé militaire", sets:3, min:10, max:10, mode:"charge", start:10, step:2.5, repos:90, unite:"kg par côté", fiche:"militaire",
+      tip:"Gaine les abdos et serre les fesses pour ne pas cambrer en poussant."},
+    {id:"pecdeck", nom:"Pec deck", sets:2, min:12, max:12, mode:"charge", start:5, step:2.5, repos:90, unite:"kg par côté", fiche:"pecdeck",
+      tip:"Coudes légèrement fléchis, ferme les bras devant toi sans hausser les épaules."},
+    {id:"relevesC", nom:"Relevé de genoux à la chaise romaine", sets:3, min:12, max:15, mode:"reps", repos:90, lie:"releves", fiche:"releves",
       tip:"Même exercice qu'en séance A : dos collé au dossier, genoux vers la poitrine en enroulant le bassin."}
   ]
 };
@@ -64,10 +73,8 @@ export const EX = {
 const RETIRES = [
     {id:"ext45", nom:"Extension au banc à 45°", sets:3, min:12, max:15, mode:"charge", start:0, step:2.5, repos:90, nouveau:true, fiche:"ext45",
       tip:"0 kg = sans poids. Coussin sous le pli de la hanche, pieds ouverts en V, serre les fesses pour remonter."},
-    {id:"militaire", nom:"Développé militaire", sets:3, min:10, max:10, mode:"charge", start:10, step:2.5, repos:90, unite:"kg par côté", fiche:"militaire",
-      tip:"Gaine les abdos et serre les fesses pour ne pas cambrer en poussant."},
-    {id:"pecdeck", nom:"Pec deck (si tu as le temps)", sets:2, min:12, max:12, mode:"charge", start:5, step:2.5, repos:90, unite:"kg par côté", optionnel:true, fiche:"pecdeck",
-      tip:"Optionnel. Coudes légèrement fléchis, ferme les bras devant toi sans hausser les épaules."}
+    {id:"relevesB", nom:"Relevé de genoux à la chaise romaine", sets:3, min:12, max:15, mode:"reps", repos:90, nouveau:true, lie:"releves", fiche:"releves",
+      tip:"Même exercice qu'en séance A : dos collé au dossier, genoux vers la poitrine en enroulant le bassin."}
 ];
 
 // Fiches techniques (onglet Exercices et bouton « Comment faire ? »), dans l'ordre des séances.
@@ -280,7 +287,7 @@ export const FICHES = [
     plus:""}
 ];
 
-export const ALL = [...EX.A, ...EX.B];
+export const ALL = [...EX.A, ...EX.B, ...EX.C];
 export const byId = Object.fromEntries([...ALL, ...RETIRES].map(e => [e.id, e]));
 
 // Si la machine est prise : exercice de remplacement (validé par Romane le 16/11/2026).
